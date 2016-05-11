@@ -43,3 +43,16 @@ new_http_archive(
     strip_prefix = "zlib-1.2.8",
     url = "http://zlib.net/zlib128.zip",
 )
+
+# ===== Caffe =====
+
+bind(
+    name = "caffe",
+    actual = "@caffe_archive//:caffe",
+)
+
+new_local_repository(
+   name = "caffe_archive",
+   path = __workspace_dir__+"/../caffe/build_ubuntu/install",
+   build_file = "third_party/caffe/caffe.BUILD"
+)
