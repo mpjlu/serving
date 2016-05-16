@@ -52,7 +52,7 @@ bind(
 )
 
 new_local_repository(
-   name = "caffe_archive",
-   path = __workspace_dir__+"/../caffe/build_ubuntu/install",
-   build_file = "third_party/caffe/caffe.BUILD"
+    name = "caffe_archive",
+    path = __workspace_dir__+"/../caffe/build_ubuntu/install",
+    build_file = "third_party/caffe/caffe.BUILD"
 )
