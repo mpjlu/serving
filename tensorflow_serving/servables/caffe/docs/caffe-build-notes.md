@@ -50,10 +50,10 @@
         -DCPU_ONLY=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DBLAS:string="open" \
-        -DBUILD_SHARED_LIBS=ON \
         -DBUILD_python=OFF \
         -DBUILD_python_layer=OFF \
-        -DUSE_OPENCV=OFF
+        -DUSE_OPENCV=OFF \
+        -DBUILD_SHARED_LIBS=OFF
 
     -- ******************* Caffe Configuration Summary *******************
     -- General:
@@ -65,7 +65,7 @@
     --   Debug CXX flags   :   -g -fPIC -Wall -Wno-sign-compare -Wno-uninitialized
     --   Build type        :   Release
     --
-    --   BUILD_SHARED_LIBS :   ON
+    --   BUILD_SHARED_LIBS :   OFF
     --   BUILD_python      :   ON
     --   BUILD_matlab      :   OFF
     --   BUILD_docs        :   ON
