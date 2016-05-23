@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+package tensorflow.serving;
+
+// Configuration parameters for a Caffe SessionBundle, with optional batching.
+// Note; Caffe doesn't have the concept of a session bungle (a collection of 
+// graphs). These Configuration settings are a minimal subset of the TF 
+// SessionBundle configuration options.
+message CaffeSessionBundleConfig {
+  // Map from device type name (e.g., "CPU" or "GPU" ) to maximum
+  // number of devices of that type to use.  If a particular device
+  // type is not found in the map, the system picks an appropriate
+  // number.
+  map<string, int32> device_count = 2;
+}

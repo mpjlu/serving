@@ -48,7 +48,7 @@ using Net = caffe::Net<float>;
 
 // Writes the given hashmap to a file.
 Status WriteCaffeToFile(const CaffeSourceAdapterConfig::Format format,
-                          const string& file_name, const std::string& model_definition) {
+                        const string& file_name, const std::string& model_definition) {
   WritableFile* file_raw;
   TF_RETURN_IF_ERROR(Env::Default()->NewWritableFile(file_name, &file_raw));
   std::unique_ptr<WritableFile> file(file_raw);

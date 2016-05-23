@@ -24,6 +24,82 @@ filegroup(
     ),
 )
 
+load("//tensorflow_serving:serving.bzl", "serving_proto_library")
+
+serving_proto_library(
+    name = "caffe_session_bundle_config_proto",
+    srcs = ["caffe_session_bundle_config.proto"],
+    cc_api_version = 2,
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@tf//google/protobuf:cc_wkt_protos",
+        "@tf//tensorflow/core:protos_all_cc",
+    ],
+)
+
+cc_library(
+    name = "caffe_session_bundle",
+    srcs = ["caffe_session_bundle.cc"],
+    hdrs = ["caffe_session_bundle.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:caffe",
+        "@tf//google/protobuf:cc_wkt_protos",
+        "@tf//google/protobuf:protobuf_lite",
+        "@tf//tensorflow/core:protos_all_cc",
+        "@tf//tensorflow/core:framework",
+        "@tf//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
+    name = "caffe_session_bundle_factory",
+    srcs = ["caffe_session_bundle_factory.cc"],
+    hdrs = ["caffe_session_bundle_factory.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@tf//google/protobuf:cc_wkt_protos",
+        "@tf//tensorflow/core:lib",
+
+        ":caffe_session_bundle_config_proto",
+        ":caffe_session_bundle",
+
+        "//tensorflow_serving/batching:batching_session",
+        "//tensorflow_serving/batching:shared_batch_scheduler",
+        "//tensorflow_serving/resources:resource_values",
+        "//tensorflow_serving/resources:resources_proto",
+    ],
+)
+
+cc_test(
+    name = "caffe_session_bundle_factory_test",
+    size = "small",
+    srcs = [
+        "caffe_session_bundle_factory_test.cc", 
+        "//tensorflow_serving/servables/caffe/example:mnist_sample"
+    ],
+    data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
+    deps = [
+        "//external:caffe",
+        
+        "@tf//google/protobuf:cc_wkt_protos",
+        "@tf//tensorflow/core:core_cpu",
+        "@tf//tensorflow/core:lib",
+        "@tf//tensorflow/core:tensorflow",
+        "@tf//tensorflow/core:test",
+        "@tf//tensorflow/core:testlib",
+        
+        ":caffe_session_bundle_config_proto",
+        ":caffe_session_bundle_factory",
+
+        "//tensorflow_serving/core/test_util:test_main",
+        "//tensorflow_serving/resources:resource_values",
+        "//tensorflow_serving/test_util",
+    ],
+)
+
 cc_library(
     name = "caffe_source_adapter",
     srcs = ["caffe_source_adapter.cc"],
@@ -44,7 +120,7 @@ cc_library(
 
 cc_test(
     name = "caffe_source_adapter_test",
-    size = "medium",
+    size = "small",
     srcs = ["caffe_source_adapter_test.cc"],
     deps = [
         "//external:caffe",

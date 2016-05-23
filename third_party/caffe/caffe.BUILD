@@ -1,4 +1,4 @@
-package(default_visibility = ['//visibility:public'])
+package(default_visibility = ["//visibility:public"])
 
 CAFFE_LAYERS_OBJS = [
     "threshold_layer.cpp.o",
@@ -77,8 +77,8 @@ CAFFE_LAYERS_OBJS = [
 #   need to know the layer names upfront.
 genrule(
     name = "caffe-extract",
-    srcs = ['lib/libcaffe.a'],
-    outs = ['libcaffe.a.dir/' + o for o in CAFFE_LAYERS_OBJS],
+    srcs = ["lib/libcaffe.a"],
+    outs = ["libcaffe.a.dir/" + o for o in CAFFE_LAYERS_OBJS],
     cmd = '''
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
         cp $(location :lib/libcaffe.a) $$workdir; 
