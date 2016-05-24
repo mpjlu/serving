@@ -60,38 +60,25 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
     const std::vector<float> input = mnist_sample_28x28();
     ASSERT_EQ(28 * 28, input.size());
 
-    caffe::Blob<float>* input_layer = bundle->session->input_blobs()[0];
-    caffe::Blob<float>* output_layer = bundle->session->output_blobs()[0];
+    std::vector<gtl::ArraySlice<float>> inputs { input };
+    std::vector<std::vector<float>> outputs;
+
+    TF_ASSERT_OK(bundle->session->Run(inputs, outputs));
     {
-      ASSERT_EQ(input_layer->count(), input.size() * 64 /* batch */);
-      std::copy_n(input.data(), input.size(), input_layer->mutable_cpu_data());
-    }
-
-    bundle->session->Forward();
-    {
-      ASSERT_EQ(output_layer->count(0), 10 * 64 /* batch */);
-      /* Copy the output layer to a std::vector */
-      const float* begin = output_layer->cpu_data();
-      const float* end = begin + output_layer->channels();
-
-      std::vector<float> result(begin, end);
-
-      /* convert result to tensor */
+      ASSERT_EQ(outputs.size(), 1);
+      ASSERT_EQ(outputs[0].size(), 10);
+      // convert result to tensor
       {
         Tensor expected_output = test::AsTensor<float>(
           { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 }, { 10 }
         );
         Tensor output = test::AsTensor<float>(
-          result, { 10 }
+          outputs[0], { 10 }
         );
 
         test::ExpectTensorNear<float>(expected_output, output, 0.05);
       }
     }
-
-    
-//    const auto& single_output = outputs.at(0);
-//    test::ExpectTensorEqual<float>(expected_output, single_output);
   }
 };
 

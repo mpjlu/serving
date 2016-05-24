@@ -13,38 +13,41 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-// Low-level functionality for setting up a inference Session.
-
 #pragma once
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+#include <algorithm>
 
+#include "tensorflow/core/lib/gtl/array_slice.h"
+#include "tensorflow/core/framework/tensor_shape.h"
 
-#include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/lib/core/stringpiece.h"
-
-#include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
+#include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
+
 
 namespace tensorflow {
 namespace serving {
 
-const char kGraphDefFilename[] = "deploy.prototxt";
+// Encapsulates a caffe network 
+class CaffeServingSession {
+ public:
+  CaffeServingSession(const caffe::NetParameter& graph) 
+      : net_{ new caffe::Net<float>(graph) } {}
+  virtual ~CaffeServingSession() = default;
 
-// No session options for Caffe
-struct CaffeSessionOptions {};
+  Status CopyTrainedLayersFromBinaryProto(const string trained_filename);
 
-// The closest thing we can get to a TF session bundle?
-struct CaffeSessionBundle {
-  std::unique_ptr<CaffeServingSession> session;
-  caffe::NetParameter graph_def;
+  virtual Status Run(const std::vector<gtl::ArraySlice<float>>& inputs,
+                     std::vector<std::vector<float>>& outputs);
+
+ private:
+  std::unique_ptr<caffe::Net<float>> net_;
+
+  TF_DISALLOW_COPY_AND_ASSIGN(CaffeServingSession);  
 };
-
-// Loads a manifest and initialized session using the output of an Exporter
-tensorflow::Status LoadSessionBundleFromPath(
-    const CaffeSessionOptions& options,
-    const tensorflow::StringPiece export_dir, 
-    CaffeSessionBundle* bundle);
 
 }  // namespace serving
 }  // namespace tensorflow

@@ -51,6 +51,18 @@ cc_library(
         "@tf//tensorflow/core:protos_all_cc",
         "@tf//tensorflow/core:framework",
         "@tf//tensorflow/core:lib",
+        ":caffe_serving_session",
+    ],
+)
+
+cc_library(
+    name = "caffe_serving_session",
+    srcs = ["caffe_serving_session.cc"],
+    hdrs = ["caffe_serving_session.h"],
+    deps = [
+        "//external:caffe",
+        "@tf//tensorflow/core:lib",
+        "@tf//tensorflow/core:tensorflow",
     ],
 )
 
@@ -62,10 +74,9 @@ cc_library(
     deps = [
         "@tf//google/protobuf:cc_wkt_protos",
         "@tf//tensorflow/core:lib",
-
         ":caffe_session_bundle_config_proto",
         ":caffe_session_bundle",
-
+        ":caffe_serving_session",
         "//tensorflow_serving/batching:batching_session",
         "//tensorflow_serving/batching:shared_batch_scheduler",
         "//tensorflow_serving/resources:resource_values",
@@ -83,17 +94,14 @@ cc_test(
     data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
     deps = [
         "//external:caffe",
-        
         "@tf//google/protobuf:cc_wkt_protos",
         "@tf//tensorflow/core:core_cpu",
         "@tf//tensorflow/core:lib",
         "@tf//tensorflow/core:tensorflow",
         "@tf//tensorflow/core:test",
         "@tf//tensorflow/core:testlib",
-        
         ":caffe_session_bundle_config_proto",
         ":caffe_session_bundle_factory",
-
         "//tensorflow_serving/core/test_util:test_main",
         "//tensorflow_serving/resources:resource_values",
         "//tensorflow_serving/test_util",

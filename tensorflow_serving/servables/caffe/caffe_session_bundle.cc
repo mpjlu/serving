@@ -29,9 +29,10 @@ limitations under the License.
 #include "tensorflow/core/platform/types.h"
 
 #include "caffe/proto/caffe.pb.h"
-#include "caffe/net.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp "
+
+#include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
 
 namespace tensorflow {
 namespace serving {
@@ -41,9 +42,9 @@ namespace {
 Status CreateSessionFromGraphDef(
     const CaffeSessionOptions& options, 
     const caffe::NetParameter& graph,
-    std::unique_ptr<caffe::Net<float>>* session) {
+    std::unique_ptr<CaffeServingSession>* session) {
   // TODO(rayglover): is there any way to handle failure here?
-  session->reset(new caffe::Net<float>(graph));
+  session->reset(new CaffeServingSession(graph));
   return Status::OK();
 }
 
@@ -57,14 +58,16 @@ Status GetGraphDefFromExport(const StringPiece export_dir,
         strings::StrCat("Caffe model does not exist: ",
                         graph_def_path));
   }
-  else if (ReadProtoFromTextFile(graph_def_path, graph_def)) {
-    if (UpgradeNetAsNeeded(graph_def_path, graph_def)) {
-      return Status::OK();
-    }
+  else if (!ReadProtoFromTextFile(graph_def_path, graph_def)) {
+    return errors::InvalidArgument(
+      strings::StrCat("Caffe network failed to load from file: ",
+                      graph_def_path));
+  } else if (!UpgradeNetAsNeeded(graph_def_path, graph_def)) {
+    return errors::InvalidArgument(
+      strings::StrCat("Network upgrade failed from while loading from file: ",
+                      graph_def_path));
   }
-  return errors::FailedPrecondition(
-    strings::StrCat("Caffe network failed to load from file: ",
-                    graph_def_path));
+  return Status::OK();
 }
 
 string GetVariablesFilename(const StringPiece export_dir) {
@@ -73,12 +76,11 @@ string GetVariablesFilename(const StringPiece export_dir) {
 }
 
 Status RunRestoreOp(const StringPiece export_dir,
-                    caffe::Net<float>* session) {
+                    CaffeServingSession* session) {
   LOG(INFO) << "Running restore op for CaffeSessionBundle";
   string weights_path = GetVariablesFilename(export_dir);
   if (Env::Default()->FileExists(weights_path)) {
-    session->CopyTrainedLayersFromBinaryProto(weights_path);
-    return Status::OK();  
+    return session->CopyTrainedLayersFromBinaryProto(weights_path);
   } else {
     return errors::NotFound(
         strings::StrCat("Caffe weights file does not exist: ",
@@ -98,48 +100,14 @@ tensorflow::Status LoadSessionBundleFromPath(
   TF_RETURN_IF_ERROR(
       GetGraphDefFromExport(export_dir, &(bundle->graph_def)));
 
-//auto collection_def = bundle->meta_graph_def.collection_def();
-//if (collection_def.find(kGraphKey) != collection_def.end()) {
-//  // Use serving graph_def in MetaGraphDef collection_def.
-//  if (collection_def[kGraphKey].any_list().value_size() != 1) {
-//    return errors::FailedPrecondition(
-//        strings::StrCat("Expected exactly one serving GraphDef in : ",
-//                        bundle->meta_graph_def.DebugString()));
-//  }
-//  tensorflow::GraphDef graph_def;
-//  collection_def[kGraphKey].any_list().value(0).UnpackTo(&graph_def);
-//  TF_RETURN_IF_ERROR(
-//      CreateSessionFromGraphDef(options, graph_def, &bundle->session));
-//} else {
-    // Fallback to use the graph_def in the MetaGraphDef.
   // initialize network
   const caffe::NetParameter& graph_def = bundle->graph_def;
   TF_RETURN_IF_ERROR(
       CreateSessionFromGraphDef(options, graph_def, &bundle->session));
-//}
 
-//  std::vector<AssetFile> asset_files;
-//  auto any_assets = collection_def[kAssetsKey].any_list().value();
-//  for (const auto any_asset : any_assets) {
-//    AssetFile asset_file;
-//    any_asset.UnpackTo(&asset_file);
-//    asset_files.push_back(asset_file);
-//  }
-//
   // load weights
   TF_RETURN_IF_ERROR(
       RunRestoreOp(export_dir, bundle->session.get()));
-//
-//  if (collection_def.find(kInitOpKey) != collection_def.end()) {
-//    if (collection_def[kInitOpKey].node_list().value_size() != 1) {
-//      return errors::FailedPrecondition(
-//          strings::StrCat("Expected exactly one serving init op in : ",
-//                          bundle->meta_graph_def.DebugString()));
-//    }
-//    return RunInitOp(export_dir, asset_files,
-//                     collection_def[kInitOpKey].node_list().value(0),
-//                     bundle->session.get());
-//}
 
   LOG(INFO) << "Done loading SessionBundle";
   return Status::OK();
