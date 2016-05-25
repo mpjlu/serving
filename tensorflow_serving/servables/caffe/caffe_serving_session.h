@@ -20,13 +20,14 @@ limitations under the License.
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
+#include <mutex>
 
 #include "tensorflow/core/lib/gtl/array_slice.h"
-#include "tensorflow/core/framework/tensor_shape.h"
+#include "tensorflow/core/lib/core/status.h"
 
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
-
 
 namespace tensorflow {
 namespace serving {
@@ -34,17 +35,20 @@ namespace serving {
 // Encapsulates a caffe network 
 class CaffeServingSession {
  public:
-  CaffeServingSession(const caffe::NetParameter& graph) 
-      : net_{ new caffe::Net<float>(graph) } {}
+  CaffeServingSession(const caffe::NetParameter& graph);
   virtual ~CaffeServingSession() = default;
 
   Status CopyTrainedLayersFromBinaryProto(const string trained_filename);
 
-  virtual Status Run(const std::vector<gtl::ArraySlice<float>>& inputs,
-                     std::vector<std::vector<float>>& outputs);
+  virtual Status Run(const std::vector<std::pair<string, gtl::ArraySlice<float>>>& inputs,
+                     const std::vector<string>& output_tensor_names,
+                     std::vector<std::vector<float>>* outputs);
 
  private:
   std::unique_ptr<caffe::Net<float>> net_;
+  std::unordered_map<string, unsigned int> input_blob_map_;
+  std::unordered_map<string, unsigned int> output_blob_map_;
+  std::mutex run_mutx_;
 
   TF_DISALLOW_COPY_AND_ASSIGN(CaffeServingSession);  
 };

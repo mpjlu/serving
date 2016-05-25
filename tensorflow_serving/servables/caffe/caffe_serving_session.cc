@@ -20,6 +20,9 @@ limitations under the License.
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
+#include <thread>
+#include <mutex>
 
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -34,36 +37,65 @@ limitations under the License.
 namespace tensorflow {
 namespace serving {
 
-Status CaffeServingSession::Run(const std::vector<gtl::ArraySlice<float>>& inputs,
-                                std::vector<std::vector<float>>& outputs)
+CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph) 
+    : net_{ new caffe::Net<float>(graph) } 
 {
-  const std::vector<caffe::Blob<float>*>& net_inputs = net_->input_blobs();
-  const std::vector<caffe::Blob<float>*>& net_outputs = net_->output_blobs();
+  std::vector<string> blobs = net_->blob_names();
 
-  if (net_inputs.size() != inputs.size()) {
-    return errors::InvalidArgument("expected ", net_inputs.size(), 
+  for (int idx : net_->input_blob_indices()) {
+    input_blob_map_.emplace(blobs[idx], idx);
+  }
+  for (int idx : net_->output_blob_indices()) {
+    output_blob_map_.emplace(blobs[idx], idx);
+  }
+
+  LOG(INFO) << "Network has " << input_blob_map_.size() 
+      << " inputs and " << output_blob_map_.size() << " outputs";
+}
+
+Status CaffeServingSession::Run(const std::vector<std::pair<string, gtl::ArraySlice<float>>>& inputs,
+                                const std::vector<string>& output_tensor_names,
+                                std::vector<std::vector<float>>* outputs)
+{
+  // don't permit parallel inference
+  std::lock_guard<std::mutex> lock(run_mutx_);
+
+  // check inputs are present, assuming there are no duplicates
+  if (input_blob_map_.size() != inputs.size()) {
+    return errors::InvalidArgument("Expected ", input_blob_map_.size(), 
                                    " inputs, but got ", inputs.size(), ".");
   }
 
-  for (unsigned i=0; i < inputs.size(); ++i) {
-    if (net_inputs[i]->count() < (signed)inputs[i].size()) {
-      return errors::InvalidArgument("input ", i, " has invalid dimension of ", inputs[i].size());
+  // copy input to network blobs
+  auto net_blobs = net_->blobs();
+  for (const std::pair<string, gtl::ArraySlice<float>>& in: inputs) {
+    auto it = input_blob_map_.find(in.first);
+    if (it == input_blob_map_.end()) {
+      return errors::InvalidArgument("Input blob ", in.first,
+        " does not exist in the network.");
     }
-    std::copy_n(inputs[i].data(), inputs[i].size(), net_inputs[i]->mutable_cpu_data());
+    else {
+      unsigned idx = it->second;
+      const gtl::ArraySlice<float>& view = in.second;
+      std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
+    }
   }
-
+  
   // run the inference
   net_->Forward();
 
   // copy to output vectors
-  outputs.clear();
-
-  for (unsigned i=0; i < net_outputs.size(); ++i) {
-    // TODO(rayg): this makes some fairly big assumptions about the output shape
-    const float* begin = net_outputs[i]->cpu_data();
-    const float* end = begin + net_outputs[i]->channels();
-
-    outputs.emplace_back(begin, end);
+  outputs->clear();
+  for (const string& out: output_tensor_names) {
+    auto it = output_blob_map_.find(out);
+    if (it == output_blob_map_.end()) {
+      return errors::InvalidArgument("Specified output '", out, 
+                                     "' does not exist.");
+    }
+    auto idx = it->second;
+    const float* begin = net_blobs[idx]->cpu_data();
+    const float* end = begin + net_blobs[idx]->channels();
+    outputs->emplace_back(begin, end);
   }
   return Status::OK();
 }
@@ -77,10 +109,12 @@ Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string traine
       strings::StrCat("Caffe network failed to load pretrained layers from file: ",
                       trained_filename));  
   }
-  // note: this can fail
+  // TODO(rayg): this can abort
   net_->CopyTrainedLayersFrom(param);
   return Status::OK();
 }
 
 } // namespace serving
 } // namespace tensorflow
+
+

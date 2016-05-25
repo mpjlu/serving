@@ -73,6 +73,31 @@ cc_binary(
 )
 
 cc_binary(
+    name = "mnist_inference_caffe",
+    srcs = [
+        "mnist_inference_caffe.cc",
+    ],
+    linkopts = ["-lm"],
+    data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
+    deps = [
+        "@grpc//:grpc++",
+        "@tf//tensorflow/core:core_cpu",
+        "@tf//tensorflow/core:framework",
+        "@tf//tensorflow/core:lib",
+        "@tf//tensorflow/core:protos_all_cc",
+        # "@tf//tensorflow/core:tensorflow",
+        "//external:caffe",
+        ":mnist_inference_proto",
+        "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
+        "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
+        "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+
+        # "//tensorflow_serving/session_bundle:manifest_proto",
+        # "//tensorflow_serving/session_bundle:signature",
+    ],
+)
+
+cc_binary(
     name = "mnist_inference_2",
     srcs = [
         "mnist_inference_2.cc",

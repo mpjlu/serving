@@ -48,22 +48,25 @@ using test_util::EqualsProto;
 class CaffeSessionBundleFactoryTest : public ::testing::Test {
  protected:
   CaffeSessionBundleFactoryTest()
-      : export_dir_(test_util::TestSrcDirPath(
-            "servables/caffe/example/00000023")) {}
+      : export_dir_(test_util::TestSrcDirPath("servables/caffe/example/00000023")) {
+    input_sample_ = mnist_sample_28x28();
+  }
 
   // Test data path, to be initialized to point at an export of half-plus-two.
   const string export_dir_;
+  std::vector<float> input_sample_;
 
   // Test that a SessionBundle handles a single request for the half plus two
   // model properly. The request has size=2, for batching purposes.
   void TestSingleRequest(CaffeSessionBundle* bundle) {
-    const std::vector<float> input = mnist_sample_28x28();
-    ASSERT_EQ(28 * 28, input.size());
+    ASSERT_EQ(28 * 28, input_sample_.size());
 
-    std::vector<gtl::ArraySlice<float>> inputs { input };
+    std::vector<std::pair<string, gtl::ArraySlice<float>>> inputs { 
+      {"data", input_sample_} 
+    };
     std::vector<std::vector<float>> outputs;
 
-    TF_ASSERT_OK(bundle->session->Run(inputs, outputs));
+    TF_ASSERT_OK(bundle->session->Run(inputs, {"prob"}, &outputs));
     {
       ASSERT_EQ(outputs.size(), 1);
       ASSERT_EQ(outputs[0].size(), 10);
