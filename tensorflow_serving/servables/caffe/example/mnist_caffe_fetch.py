@@ -18,14 +18,15 @@
 """Functions for downloading and extracting pretrained MNIST caffe models."""
 from __future__ import print_function
 
+import argparse
 import tarfile
 import os
 
 from six.moves import urllib
 
-SOURCE_URL = 'https://ibm.box.com/shared/static/gq1nqilju1zd8rjjkhdesvp6lh7f9udd.gz'
-OUT_FILE = 'mnist_pretrained_caffe.gz'
-DEST = '/tmp/mnist_caffe_fetch'
+VERSION_FORMAT_SPECIFIER = "%08d"
+SOURCE_URL = 'https://ibm.box.com/shared/static/yemc4i8mtvrito2cgoypw4auxxvzatoo.tar'
+OUT_FILE = 'mnist_pretrained_caffe.tar'
 
 def maybe_download(url, filename, work_directory):
   """Download the data"""
@@ -41,9 +42,23 @@ def maybe_download(url, filename, work_directory):
   return filepath
 
 if __name__ == '__main__':
-  print('Downloading...', SOURCE_URL)
-  filename = maybe_download(SOURCE_URL, OUT_FILE, DEST)
+  parser = argparse.ArgumentParser()
+  parser.add_argument("export_path", help="location to download and extract the model")
+  parser.add_argument("--version", type=int, default=1, help="model version")
+  args = parser.parse_args()
 
-  print('Extracting "%s" to "%s"' % (filename, DEST))
+  export_dir = os.path.join(args.export_path, VERSION_FORMAT_SPECIFIER % args.version)
+  if os.path.exists(export_dir):
+    raise RuntimeError("Overwriting exports can cause corruption and are "
+                       "not allowed. Duplicate export dir: %s" % export_dir)
+  
+  os.makedirs(export_dir)
+
+  print('Downloading...', SOURCE_URL)
+  filename = maybe_download(SOURCE_URL, OUT_FILE, export_dir)
+
+  print('Extracting "%s" to "%s"' % (filename, export_dir))
   with tarfile.open(filename) as tar:
-    tar.extractall(path=DEST)
+    tar.extractall(path=export_dir)
+
+  # TODO(rayg): check model/data file(s) exists

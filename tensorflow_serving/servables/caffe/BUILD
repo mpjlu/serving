@@ -87,13 +87,11 @@ cc_library(
 cc_test(
     name = "caffe_session_bundle_factory_test",
     size = "small",
-    srcs = [
-        "caffe_session_bundle_factory_test.cc", 
-        "//tensorflow_serving/servables/caffe/example:mnist_sample"
-    ],
+    srcs = ["caffe_session_bundle_factory_test.cc"],
     data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
     deps = [
         "//external:caffe",
+        "//tensorflow_serving/servables/caffe/example:mnist_sample",
         "@tf//google/protobuf:cc_wkt_protos",
         "@tf//tensorflow/core:core_cpu",
         "@tf//tensorflow/core:lib",

@@ -72,8 +72,8 @@ CAFFE_LAYERS_OBJS = [
 ]
 
 # TODO (rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
-#   This genrule unpacks the caffe.a so the object
-#   files can be linked independantly. A terrible hack, not least because we
+#   This genrule unpacks the caffe.a so the object files can be linked 
+#   independantly. A terrible hack, not least because we
 #   need to know the layer names upfront.
 genrule(
     name = "caffe-extract",

@@ -29,22 +29,20 @@ py_binary(
 
 genrule(
     name = "mnist_pretrained_caffe",
+    cmd = '''
+        rm -rf $(@D)/00000023;
+        $(locations :mnist_caffe_fetch) --version=23 $(@D);
+        ''', 
     outs = [
         "00000023/deploy.prototxt",
         "00000023/weights.caffemodel",
     ],
-    cmd = '''
-        rm -rf /tmp/mnist_caffe_fetch;
-        $(locations :mnist_caffe_fetch);
-        mkdir -p $(@D)/00000023;
-        cp -r /tmp/mnist_caffe_fetch/mnist/* $(@D)/00000023; 
-        ''', 
     tools = [
         ":mnist_caffe_fetch",
     ],
 )
 
-filegroup(
+cc_library(
     name = "mnist_sample",
-    srcs = ["mnist_sample.h"]
+    hdrs = ["mnist_sample.h"]
 )
