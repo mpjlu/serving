@@ -24,6 +24,7 @@ limitations under the License.
 #include "tensorflow/core/lib/core/stringpiece.h"
 
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
+#include "tensorflow/core/public/session.h"
 #include "caffe/proto/caffe.pb.h"
 
 namespace tensorflow {
@@ -36,7 +37,7 @@ struct CaffeSessionOptions {};
 
 // The closest thing we can get to a TF session bundle?
 struct CaffeSessionBundle {
-  std::unique_ptr<CaffeServingSession> session;
+  std::unique_ptr<tensorflow::Session> session;
   caffe::NetParameter graph_def;
 };
 

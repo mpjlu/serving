@@ -36,6 +36,7 @@ serving_proto_library(
     deps = [
         "@tf//google/protobuf:cc_wkt_protos",
         "@tf//tensorflow/core:protos_all_cc",
+        "//tensorflow_serving/servables/tensorflow:session_bundle_config_proto",
     ],
 )
 
@@ -63,6 +64,7 @@ cc_library(
         "//external:caffe",
         "@tf//tensorflow/core:lib",
         "@tf//tensorflow/core:tensorflow",
+        "//tensorflow_serving/servables/tensorflow:serving_session",
     ],
 )
 

@@ -60,26 +60,23 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
   // model properly. The request has size=2, for batching purposes.
   void TestSingleRequest(CaffeSessionBundle* bundle) {
     ASSERT_EQ(28 * 28, input_sample_.size());
+    gtl::ArraySlice<float> input_slice(input_sample_);
 
-    std::vector<std::pair<string, gtl::ArraySlice<float>>> inputs { 
-      {"data", input_sample_} 
+    std::vector<std::pair<string, Tensor>> inputs { 
+      {"data", test::AsTensor(input_slice, {1, 1, 28, 28}) } 
     };
-    std::vector<std::vector<float>> outputs;
+    std::vector<Tensor> outputs;
 
-    TF_ASSERT_OK(bundle->session->Run(inputs, {"prob"}, &outputs));
+    TF_ASSERT_OK(bundle->session->Run(inputs, {"prob"}, {}, &outputs));
     {
       ASSERT_EQ(outputs.size(), 1);
-      ASSERT_EQ(outputs[0].size(), 10);
+      ASSERT_EQ(outputs[0].NumElements(), 10);
       // convert result to tensor
       {
         Tensor expected_output = test::AsTensor<float>(
-          { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 }, { 10 }
+          { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 }, { 1, 10 }
         );
-        Tensor output = test::AsTensor<float>(
-          outputs[0], { 10 }
-        );
-
-        test::ExpectTensorNear<float>(expected_output, output, 0.05);
+        test::ExpectTensorNear<float>(expected_output, outputs[0], 0.05);
       }
     }
   }

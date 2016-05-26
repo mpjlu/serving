@@ -46,33 +46,33 @@ Status CaffeSessionBundleFactory::Create(
 {
   std::shared_ptr<Batcher> batcher;
   // Populate 'batcher' if batching is configured.
-//  if (config.has_batching_parameters()) {
-//    const BatchingParameters& batching_config = config.batching_parameters();
-//
-//    if (!batching_config.allowed_batch_sizes().empty()) {
-//      // Verify that the last allowed batch size matches the max batch size.
-//      const int last_allowed_size = batching_config.allowed_batch_sizes(
-//          batching_config.allowed_batch_sizes().size() - 1);
-//      const int max_size = batching_config.has_max_batch_size()
-//                               ? batching_config.max_batch_size().value()
-//                               : Batcher::QueueOptions().max_batch_size;
-//      if (last_allowed_size != max_size) {
-//        return errors::InvalidArgument(
-//            "Last entry in allowed_batch_sizes must match max_batch_size; last "
-//            "entry was ",
-//            last_allowed_size, "; expected ", max_size);
-//      }
-//    }
-//
-//    Batcher::Options options;
-//    if (batching_config.has_num_batch_threads()) {
-//      options.num_batch_threads = batching_config.num_batch_threads().value();
-//    }
-//    if (batching_config.has_thread_pool_name()) {
-//      options.thread_pool_name = batching_config.thread_pool_name().value();
-//    }
-//    TF_RETURN_IF_ERROR(Batcher::Create(options, &batcher));
-//  }
+  if (config.has_batching_parameters()) {
+    const BatchingParameters& batching_config = config.batching_parameters();
+
+    if (!batching_config.allowed_batch_sizes().empty()) {
+      // Verify that the last allowed batch size matches the max batch size.
+      const int last_allowed_size = batching_config.allowed_batch_sizes(
+          batching_config.allowed_batch_sizes().size() - 1);
+      const int max_size = batching_config.has_max_batch_size()
+                               ? batching_config.max_batch_size().value()
+                               : Batcher::QueueOptions().max_batch_size;
+      if (last_allowed_size != max_size) {
+        return errors::InvalidArgument(
+            "Last entry in allowed_batch_sizes must match max_batch_size; last "
+            "entry was ",
+            last_allowed_size, "; expected ", max_size);
+      }
+    }
+
+    Batcher::Options options;
+    if (batching_config.has_num_batch_threads()) {
+      options.num_batch_threads = batching_config.num_batch_threads().value();
+    }
+    if (batching_config.has_thread_pool_name()) {
+      options.thread_pool_name = batching_config.thread_pool_name().value();
+    }
+    TF_RETURN_IF_ERROR(Batcher::Create(options, &batcher));
+  }
   factory->reset(new CaffeSessionBundleFactory(config, batcher));
   return Status::OK();
 }
@@ -118,12 +118,9 @@ Status CaffeSessionBundleFactory::CreateSessionBundle(
   TF_RETURN_IF_ERROR(LoadSessionBundleFromPath(GetSessionOptions(this->config_),
                                                path, bundle->get()));
   // TODO(rayglover): batching
-//if (this->config_.has_batching_parameters()) {
-//  TF_RETURN_IF_ERROR(this->WrapSessionForBatching(bundle->get()));
-//} else {
-//  (*bundle)->session.reset(
-//      new ServingSessionWrapper(std::move((*bundle)->session)));
-//}
+  if (this->config_.has_batching_parameters()) {
+    TF_RETURN_IF_ERROR(this->WrapSessionForBatching(bundle->get()));
+  }
   return Status::OK();
 }
 
@@ -135,57 +132,57 @@ Status CaffeSessionBundleFactory::WrapSessionForBatching(CaffeSessionBundle* bun
 {
   LOG(INFO) << "Wrapping SessionBundle session to perform batch processing";
 
-//  if (batch_scheduler_ == nullptr) {
-//    return errors::Internal("batch_scheduler_ not set");
-//  }
-//  if (!config_.has_batching_parameters()) {
-//    return errors::Internal("No batching parameters");
-//  }
-//  const BatchingParameters& batching_config = config_.batching_parameters();
-//
-//  Batcher::QueueOptions queue_options;
-//  if (batching_config.has_max_batch_size()) {
-//    queue_options.max_batch_size = batching_config.max_batch_size().value();
-//  }
-//  if (batching_config.has_batch_timeout_micros()) {
-//    queue_options.batch_timeout_micros =
-//        batching_config.batch_timeout_micros().value();
-//  }
-//  if (batching_config.has_max_enqueued_batches()) {
-//    queue_options.max_enqueued_batches =
-//        batching_config.max_enqueued_batches().value();
-//  }
-//
-//  BatchingSessionOptions batching_session_options;
-//  for (int allowed_batch_size : batching_config.allowed_batch_sizes()) {
-//    batching_session_options.allowed_batch_sizes.push_back(allowed_batch_size);
-//  }
-//
-//  BatchSchedulerRetrier<BatchingSessionTask>::Options retry_options;
-//  if (batching_config.has_max_time_micros()) {
-//    retry_options.max_time_micros = batching_config.max_time_micros().value();
-//  }
-//  if (batching_config.has_retry_delay_micros()) {
-//    retry_options.retry_delay_micros =
-//        batching_config.retry_delay_micros().value();
-//  }
-//
-//  auto create_queue = [this, queue_options, retry_options](
-//      std::function<void(std::unique_ptr<Batch<BatchingSessionTask>>)>
-//          process_batch_callback,
-//      std::unique_ptr<BatchScheduler<BatchingSessionTask>>* batch_scheduler) {
-//    std::unique_ptr<BatchScheduler<BatchingSessionTask>> queue;
-//    TF_RETURN_IF_ERROR(this->batch_scheduler_->AddQueue(
-//        queue_options, process_batch_callback, &queue));
-//    std::unique_ptr<BatchSchedulerRetrier<BatchingSessionTask>> retrier;
-//    TF_RETURN_IF_ERROR(BatchSchedulerRetrier<BatchingSessionTask>::Create(
-//        retry_options, std::move(queue), &retrier));
-//    *batch_scheduler = std::move(retrier);
-//    return Status::OK();
-//  };
-//  TF_RETURN_IF_ERROR(
-//      CreateBatchingSession(batching_session_options, create_queue,
-//                            std::move(bundle->session), &bundle->session));
+  if (batch_scheduler_ == nullptr) {
+    return errors::Internal("batch_scheduler_ not set");
+  }
+  if (!config_.has_batching_parameters()) {
+    return errors::Internal("No batching parameters");
+  }
+  const BatchingParameters& batching_config = config_.batching_parameters();
+
+  Batcher::QueueOptions queue_options;
+  if (batching_config.has_max_batch_size()) {
+    queue_options.max_batch_size = batching_config.max_batch_size().value();
+  }
+  if (batching_config.has_batch_timeout_micros()) {
+    queue_options.batch_timeout_micros =
+        batching_config.batch_timeout_micros().value();
+  }
+  if (batching_config.has_max_enqueued_batches()) {
+    queue_options.max_enqueued_batches =
+        batching_config.max_enqueued_batches().value();
+  }
+
+  BatchingSessionOptions batching_session_options;
+  for (int allowed_batch_size : batching_config.allowed_batch_sizes()) {
+    batching_session_options.allowed_batch_sizes.push_back(allowed_batch_size);
+  }
+
+  BatchSchedulerRetrier<BatchingSessionTask>::Options retry_options;
+  if (batching_config.has_max_time_micros()) {
+    retry_options.max_time_micros = batching_config.max_time_micros().value();
+  }
+  if (batching_config.has_retry_delay_micros()) {
+    retry_options.retry_delay_micros =
+        batching_config.retry_delay_micros().value();
+  }
+
+  auto create_queue = [this, queue_options, retry_options](
+      std::function<void(std::unique_ptr<Batch<BatchingSessionTask>>)>
+          process_batch_callback,
+      std::unique_ptr<BatchScheduler<BatchingSessionTask>>* batch_scheduler) {
+    std::unique_ptr<BatchScheduler<BatchingSessionTask>> queue;
+    TF_RETURN_IF_ERROR(this->batch_scheduler_->AddQueue(
+        queue_options, process_batch_callback, &queue));
+    std::unique_ptr<BatchSchedulerRetrier<BatchingSessionTask>> retrier;
+    TF_RETURN_IF_ERROR(BatchSchedulerRetrier<BatchingSessionTask>::Create(
+        retry_options, std::move(queue), &retrier));
+    *batch_scheduler = std::move(retrier);
+    return Status::OK();
+  };
+  TF_RETURN_IF_ERROR(
+      CreateBatchingSession(batching_session_options, create_queue,
+                            std::move(bundle->session), &bundle->session));
 
   return Status::OK();
 }

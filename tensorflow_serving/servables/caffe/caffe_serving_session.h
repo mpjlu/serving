@@ -26,6 +26,8 @@ limitations under the License.
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/lib/core/status.h"
 
+#include "tensorflow_serving/servables/tensorflow/serving_session.h"
+
 #include "caffe/net.hpp"
 #include "caffe/proto/caffe.pb.h"
 
@@ -33,16 +35,17 @@ namespace tensorflow {
 namespace serving {
 
 // Encapsulates a caffe network 
-class CaffeServingSession {
+class CaffeServingSession : public ServingSession {
  public:
   CaffeServingSession(const caffe::NetParameter& graph);
   virtual ~CaffeServingSession() = default;
 
   Status CopyTrainedLayersFromBinaryProto(const string trained_filename);
 
-  virtual Status Run(const std::vector<std::pair<string, gtl::ArraySlice<float>>>& inputs,
+  virtual Status Run(const std::vector<std::pair<string, Tensor>>& inputs,
                      const std::vector<string>& output_tensor_names,
-                     std::vector<std::vector<float>>* outputs);
+                     const std::vector<string>& target_node_names,
+                     std::vector<Tensor>* outputs) override;
 
  private:
   std::unique_ptr<caffe::Net<float>> net_;

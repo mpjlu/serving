@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/wrappers.proto";
+import "tensorflow_serving/servables/tensorflow/session_bundle_config.proto";
 
 package tensorflow.serving;
 
@@ -14,4 +15,19 @@ message CaffeSessionBundleConfig {
   // type is not found in the map, the system picks an appropriate
   // number.
   map<string, int32> device_count = 2;
+
+  // If set, each emitted session is wrapped with a layer that schedules Run()
+  // calls in batches. The batching layer is transparent to the client
+  // (implements the tensorflow::Session API).
+  //
+  // IMPORTANT: With batching enabled, client threads will spend most of their
+  // time blocked on Session::Run() calls, waiting for enough peer threads to
+  // also call Session::Run() such that a large batch can be formed. For good
+  // throughput, we recommend setting the number of client threads equal to
+  // roughly twice the maximum batch size ('max_batch_size' below).
+  //
+  // The batching layer uses a SharedBatchScheduler to coordinate batching
+  // across multiple session servables emitted by this source adapter. A
+  // BatchSchedulerRetrier is added on top of each batching session.
+  BatchingParameters batching_parameters = 3;
 }

@@ -43,7 +43,6 @@ Status CreateSessionFromGraphDef(
     const CaffeSessionOptions& options, 
     const caffe::NetParameter& graph,
     std::unique_ptr<CaffeServingSession>* session) {
-  // TODO(rayglover): is there any way to handle failure here?
   session->reset(new CaffeServingSession(graph));
   return Status::OK();
 }
@@ -102,12 +101,15 @@ tensorflow::Status LoadSessionBundleFromPath(
 
   // initialize network
   const caffe::NetParameter& graph_def = bundle->graph_def;
+  std::unique_ptr<CaffeServingSession> caffe_session;
   TF_RETURN_IF_ERROR(
-      CreateSessionFromGraphDef(options, graph_def, &bundle->session));
+      CreateSessionFromGraphDef(options, graph_def, &caffe_session));
 
   // load weights
   TF_RETURN_IF_ERROR(
-      RunRestoreOp(export_dir, bundle->session.get()));
+      RunRestoreOp(export_dir, caffe_session.get()));
+
+  bundle->session.reset(caffe_session.release());
 
   LOG(INFO) << "Done loading SessionBundle";
   return Status::OK();
