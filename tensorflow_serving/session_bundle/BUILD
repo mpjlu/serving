@@ -27,12 +27,31 @@ filegroup(
 )
 
 py_library(
+    name = "constants",
+    srcs = ["constants.py"],
+)
+
+py_library(
     name = "exporter",
     srcs = ["exporter.py"],
     visibility = ["//visibility:public"],
     deps = [
         "@tf//tensorflow:tensorflow_py",
+        ":constants",
         ":gc",
+        ":manifest_proto_py",
+    ],
+)
+
+py_library(
+    name = "session_bundle_py",
+    srcs = ["session_bundle.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@tf//tensorflow:tensorflow_py",
+        "@tf//tensorflow/core:protos_all_py",
+        ":constants",
+        ":exporter",
         ":manifest_proto_py",
     ],
 )
@@ -45,9 +64,29 @@ py_test(
     ],
     deps = [
         "@tf//tensorflow:tensorflow_py",
+        ":constants",
         ":exporter",
         ":gc",
         ":manifest_proto_py",
+    ],
+)
+
+py_test(
+    name = "session_bundle_py_test",
+    size = "small",
+    srcs = [
+        "session_bundle_test.py",
+    ],
+    data = [
+        "//tensorflow_serving/session_bundle/example:half_plus_two",
+    ],
+    main = "session_bundle_test.py",
+    deps = [
+        "@tf//google/protobuf:protobuf_python",
+        "@tf//tensorflow:tensorflow_py",
+        "@tf//tensorflow/core:protos_all_py",
+        ":manifest_proto_py",
+        ":session_bundle_py",
     ],
 )
 
@@ -97,7 +136,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "@tf//google/protobuf:cc_wkt_protos",
-        "@tf//google/protobuf:protobuf_lite",
         "@tf//tensorflow/core:core_cpu",
         "@tf//tensorflow/core:framework",
         "@tf//tensorflow/core:lib",
@@ -106,6 +144,24 @@ cc_library(
         ":manifest_proto",
         ":signature",
     ],
+)
+
+filegroup(
+    name = "session_bundle_srcs",
+    srcs = [
+        "session_bundle.cc",
+        "session_bundle.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "signature_srcs",
+    srcs = [
+        "signature.cc",
+        "signature.h",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 cc_test(
@@ -137,7 +193,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "@tf//google/protobuf:cc_wkt_protos",
-        "@tf//google/protobuf:protobuf_lite",
         "@tf//tensorflow/core:core_cpu",
         "@tf//tensorflow/core:framework",
         "@tf//tensorflow/core:lib",

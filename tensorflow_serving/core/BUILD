@@ -454,7 +454,7 @@ cc_library(
 
 cc_test(
     name = "basic_manager_test",
-    size = "medium",
+    size = "small",
     srcs = ["basic_manager_test.cc"],
     deps = [
         "@tf//tensorflow/core:lib",
@@ -593,10 +593,11 @@ cc_test(
         ":servable_state",
         ":servable_state_monitor",
         ":simple_loader",
+        "//tensorflow_serving/core/test_util:manager_test_util",
         "//tensorflow_serving/core/test_util:test_main",
-        "//tensorflow_serving/util:any_ptr",
         "//tensorflow_serving/util:event_bus",
         "//tensorflow_serving/util:optional",
+        "//tensorflow_serving/util:threadpool_executor",
     ],
 )
 
