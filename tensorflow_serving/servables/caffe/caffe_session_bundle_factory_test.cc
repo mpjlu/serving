@@ -91,43 +91,31 @@ TEST_F(CaffeSessionBundleFactoryTest, Basic) {
   TestSingleRequest(bundle.get());
 }
 
-// TEST_F(CaffeSessionBundleFactoryTest, Batching) {
-//   SessionBundleConfig config;
-//   BatchingParameters* batching_params = config.mutable_batching_parameters();
-//   batching_params->mutable_max_batch_size()->set_value(2);
-//   batching_params->mutable_max_time_micros()->set_value(
-//       10 * 1000 * 1000 /* 10 seconds (should be plenty of time) */);
-//   std::unique_ptr<CaffeSessionBundleFactory> factory;
-//   TF_ASSERT_OK(CaffeSessionBundleFactory::Create(config, &factory));
-//   std::unique_ptr<CaffeSessionBundle> bundle;
-//   TF_ASSERT_OK(factory->CreateSessionBundle(export_dir_, &bundle));
-//   SessionBundle* bundle_raw = bundle.get();
+TEST_F(CaffeSessionBundleFactoryTest, Batching) {
+  CaffeSessionBundleConfig config;
+  BatchingParameters* batching_params = config.mutable_batching_parameters();
+  batching_params->mutable_max_batch_size()->set_value(2);
+  batching_params->mutable_max_time_micros()->set_value(
+      10 * 1000 * 1000 /* 10 seconds (should be plenty of time) */);
+  std::unique_ptr<CaffeSessionBundleFactory> factory;
+  TF_ASSERT_OK(CaffeSessionBundleFactory::Create(config, &factory));
+  std::unique_ptr<CaffeSessionBundle> bundle;
+  TF_ASSERT_OK(factory->CreateSessionBundle(export_dir_, &bundle));
+  CaffeSessionBundle* bundle_raw = bundle.get();
 
-//   // Run multiple requests concurrently. They should be executed as
-//   // 'kNumRequestsToTest/2' batches.
-//   {
-//     const int kNumRequestsToTest = 10;
-//     std::vector<std::unique_ptr<Thread>> request_threads;
-//     for (int i = 0; i < kNumRequestsToTest; ++i) {
-//       request_threads.push_back(
-//           std::unique_ptr<Thread>(Env::Default()->StartThread(
-//               ThreadOptions(), strings::StrCat("thread_", i),
-//               [this, bundle_raw] { this->TestSingleRequest(bundle_raw); })));
-//     }
-//   }
-// }
-
-// TEST_F(CaffeSessionBundleFactoryTest, BatchingConfigError) {
-//   CaffeSessionBundleConfig config;
-//   BatchingParameters* batching_params = config.mutable_batching_parameters();
-//   batching_params->mutable_max_batch_size()->set_value(2);
-//   // The last entry in 'allowed_batch_sizes' is supposed to equal
-//   // 'max_batch_size'. Let's violate that constraint and ensure we get an error.
-//   batching_params->add_allowed_batch_sizes(1);
-//   batching_params->add_allowed_batch_sizes(3);
-//   std::unique_ptr<SessionBundleFactory> factory;
-//   EXPECT_FALSE(SessionBundleFactory::Create(config, &factory).ok());
-// }
+  // Run multiple requests concurrently. They should be executed as
+  // 'kNumRequestsToTest/2' batches.
+  {
+    const int kNumRequestsToTest = 10;
+    std::vector<std::unique_ptr<Thread>> request_threads;
+    for (int i = 0; i < kNumRequestsToTest; ++i) {
+      request_threads.push_back(
+          std::unique_ptr<Thread>(Env::Default()->StartThread(
+              ThreadOptions(), strings::StrCat("thread_", i),
+              [this, bundle_raw] { this->TestSingleRequest(bundle_raw); })));
+    }
+  }
+}
 
 // TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithBadExport) {
 //   const CaffeSessionBundleConfig config;

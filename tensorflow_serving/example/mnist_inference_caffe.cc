@@ -66,7 +66,7 @@ using tensorflow::gtl::ArraySlice;
 using tensorflow::serving::MnistRequest;
 using tensorflow::serving::MnistResponse;
 using tensorflow::serving::MnistService;
-//using tensorflow::serving::BatchingParameters;
+using tensorflow::serving::BatchingParameters;
 using tensorflow::serving::CaffeSessionBundle;
 using tensorflow::serving::CaffeSessionBundleConfig;
 using tensorflow::serving::CaffeSessionBundleFactory;
@@ -96,25 +96,19 @@ class MnistServiceImpl final : public MnistService::Service {
 
   Status Classify(ServerContext* context, const MnistRequest* request,
                   MnistResponse* response) override {
-    // Verify protobuf input.
-    if (request->image_data_size() != kImageDataSize) {
-      return Status(StatusCode::INVALID_ARGUMENT,
-                    tensorflow::strings::StrCat("expected image_data of size ",
-                                                kImageDataSize, ", got ",
-                                                request->image_data_size()));
-    }
+    // Transform protobuf input to inference input tensor and create
+    // output tensor placeholder.
+    // See minist_export.py for details.
+    Tensor input(tensorflow::DT_FLOAT, {1, kImageDataSize});
+    std::copy_n(request->image_data().begin(), kImageDataSize,
+                input.flat<float>().data());
+    std::vector<Tensor> outputs;
 
-    // copy input data
-    std::vector<float> input(kImageDataSize);
-    std::copy_n(request->image_data().begin(), kImageDataSize, input.data());
-    
-    std::vector<std::pair<string, ArraySlice<float>>> inputs { { "data", input } };
-    std::vector<std::vector<float>> outputs;
-    
     // WARNING(break-tutorial-inline-code): The following code snippet is
     // in-lined in tutorials, please update tutorial documents accordingly
     // whenever code changes.
-    const tensorflow::Status status = bundle_->session->Run(inputs, { "prob" }, &outputs);
+    const tensorflow::Status status = bundle_->session->Run(
+      {{ "data", input }}, { "prob" }, {}, &outputs);
     if (!status.ok()) {
       return ToGRPCStatus(status);
     }
@@ -126,18 +120,26 @@ class MnistServiceImpl final : public MnistService::Service {
                     tensorflow::strings::StrCat(
                         "expected one model output, got ", outputs.size()));
     }
-//  const std::vector<float>& score_tensor = outputs[0];
-//  const TensorShape expected_shape({1, kNumLabels});
-//  if (!score_tensor.shape().IsSameSize(expected_shape)) {
-//    return Status(
-//        StatusCode::INTERNAL,
-//        tensorflow::strings::StrCat("expected output of size ",
-//                                    expected_shape.DebugString(), ", got ",
-//                                    score_tensor.shape().DebugString()));
-//  }
-    const std::vector<float>& score_flat = outputs[0];
-    for (unsigned i = 0; i < score_flat.size(); ++i) {
-      response->add_value(score_flat.at(i));
+    
+    // Transform inference output tensor to protobuf output.
+    // See minist_export.py for details.
+    if (outputs.size() != 1) {
+      return Status(StatusCode::INTERNAL,
+                    tensorflow::strings::StrCat(
+                        "expected one model output, got ", outputs.size()));
+    }
+    const Tensor& score_tensor = outputs[0];
+    const TensorShape expected_shape({1, kNumLabels});
+    if (!score_tensor.shape().IsSameSize(expected_shape)) {
+      return Status(
+          StatusCode::INTERNAL,
+          tensorflow::strings::StrCat("expected output of size ",
+                                      expected_shape.DebugString(), ", got ",
+                                      score_tensor.shape().DebugString()));
+    }
+    const auto score_flat = outputs[0].flat<float>();
+    for (int i = 0; i < score_flat.size(); ++i) {
+      response->add_value(score_flat(i));
     }
 
     return Status::OK;
@@ -183,10 +185,10 @@ int main(int argc, char** argv) {
   //
   // (If you prefer to disable batching, simply omit the following lines of code
   // such that session_bundle_config.batching_parameters remains unset.)
-//BatchingParameters* batching_parameters =
-//    session_bundle_config.mutable_batching_parameters();
-//batching_parameters->mutable_thread_pool_name()->set_value(
-//    "mnist_service_batch_threads");
+  BatchingParameters* batching_parameters =
+      session_bundle_config.mutable_batching_parameters();
+  batching_parameters->mutable_thread_pool_name()->set_value(
+      "mnist_service_batch_threads");
   //////
 
   std::unique_ptr<CaffeSessionBundleFactory> bundle_factory;
