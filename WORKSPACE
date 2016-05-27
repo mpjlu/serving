@@ -44,11 +44,13 @@ new_http_archive(
 
 bind(
     name = "caffe",
-    actual = "@caffe_archive//:caffe",
+    actual = "@caffe_git//:caffe",
 )
 
-new_local_repository(
-    name = "caffe_archive",
-    path = __workspace_dir__+"/../caffe/build_ubuntu/install",
-    build_file = "caffe.BUILD"
+new_git_repository(
+    name = "caffe_git",
+    remote = "https://github.com/BVLC/caffe",
+    commit = "a934ca54f3633479ea0573346c510df4f757df6c",
+    init_submodules = True,
+    build_file = "caffe.BUILD",
 )

@@ -71,7 +71,35 @@ CAFFE_LAYERS_OBJS = [
     "layer_factory.cpp.o",
 ]
 
-# TODO (rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
+genrule(
+    name = "configure",
+    srcs = glob(
+        ["**/*"],
+    ),
+    outs = ["lib/libcaffe.a", "lib/libproto.a", "include/caffe/proto/caffe.pb.h"],
+    cmd = '''
+        srcdir=$$(pwd);
+        pushd external/caffe_git;
+        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
+        pushd $$workdir;
+        cmake $$srcdir/external/caffe_git         \
+            -DCMAKE_INSTALL_PREFIX=$$srcdir/$(@D) \
+            -DCPU_ONLY=ON                         \
+            -DCMAKE_BUILD_TYPE=Release            \
+            -DBLAS:string="open"                  \
+            -DBUILD_python=OFF                    \
+            -DBUILD_python_layer=OFF              \
+            -DUSE_OPENCV=OFF                      \
+            -DBUILD_SHARED_LIBS=OFF;                
+        cmake --build .;
+        cmake --build . --target install;
+        popd; 
+        popd; 
+        rm -rf $$workdir;
+        ''',
+)
+
+# TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
 #   This genrule unpacks the caffe.a so the object files can be linked 
 #   independantly. A terrible hack, not least because we
 #   need to know the layer names upfront.
@@ -94,7 +122,7 @@ genrule(
 cc_library(
     name = "caffe",
     srcs = [":caffe-extract", "lib/libcaffe.a", "lib/libproto.a"],
-    hdrs = glob(["include/**"]),
+    hdrs = glob(["include/**"]) + ["include/caffe/proto/caffe.pb.h"],
     includes = ["include/"],
     defines = ["CPU_ONLY"],
     linkopts = [

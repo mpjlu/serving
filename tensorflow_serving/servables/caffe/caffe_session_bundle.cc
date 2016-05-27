@@ -30,7 +30,7 @@ limitations under the License.
 
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
-#include "caffe/util/upgrade_proto.hpp "
+#include "caffe/util/upgrade_proto.hpp"
 
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
 
