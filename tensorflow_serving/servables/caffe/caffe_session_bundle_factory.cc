@@ -117,7 +117,6 @@ Status CaffeSessionBundleFactory::CreateSessionBundle(
   bundle->reset(new CaffeSessionBundle);
   TF_RETURN_IF_ERROR(LoadSessionBundleFromPath(GetSessionOptions(this->config_),
                                                path, bundle->get()));
-  // TODO(rayglover): batching
   if (this->config_.has_batching_parameters()) {
     TF_RETURN_IF_ERROR(this->WrapSessionForBatching(bundle->get()));
   }
