@@ -21,7 +21,6 @@ limitations under the License.
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
-#include <mutex>
 
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -48,10 +47,13 @@ class CaffeServingSession : public ServingSession {
                      std::vector<Tensor>* outputs) override;
 
  private:
+  Status Reshape(unsigned int batch_size);
+
   std::unique_ptr<caffe::Net<float>> net_;
+  unsigned int batch_size_;
+
   std::unordered_map<string, unsigned int> input_blob_map_;
   std::unordered_map<string, unsigned int> output_blob_map_;
-  std::mutex run_mutx_;
 
   TF_DISALLOW_COPY_AND_ASSIGN(CaffeServingSession);  
 };

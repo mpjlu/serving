@@ -51,8 +51,24 @@ Tensor AsTensor(gtl::ArraySlice<T> vals, const TensorShape& shape) {
   return ret;
 }
 
+// A guesstimate of the batch size; assume the outermost
+// dimension of the input blob(s) indicates the batch size,
+// unless the input is 1-dimensional, in which case assume
+// batch size of 1.
+unsigned int BatchSizeOf(const caffe::Net<float>& net) {
+  unsigned int x = 1;
+  for (int idx : net.input_blob_indices()) {
+    const std::vector<int>& shape = net.blobs().at(idx)->shape();
+    if (shape.size() > 1 && shape[0] > 0) {
+      x = std::max(x, (unsigned int)shape[0]);
+    }
+  }
+  return x;
+}
+
 CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph) 
-    : net_{ new caffe::Net<float>(graph) } 
+    : net_{ new caffe::Net<float>(graph) }
+    , batch_size_{ 0 }
 {
   std::vector<string> blobs = net_->blob_names();
 
@@ -63,8 +79,12 @@ CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph)
     output_blob_map_.emplace(blobs[idx], idx);
   }
 
-  LOG(INFO) << "Network has " << input_blob_map_.size() 
-      << " inputs and " << output_blob_map_.size() << " outputs";
+  batch_size_ = BatchSizeOf(*net_);
+  LOG(INFO) << "Loaded Network:"
+      << "\n  name: " << net_->name() 
+      << "\n  inputs: " << input_blob_map_.size() 
+      << "\n  outputs: " << output_blob_map_.size() 
+      << "\n  initial batch-size: " << batch_size_;
 }
 
 Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& inputs,
@@ -98,6 +118,10 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     }
   }
 
+  if (batch_size_ < batch_size) {
+    TF_RETURN_IF_ERROR(Reshape(batch_size));
+  }
+
   // copy input to network blobs, validating tensor dimensions, etc.
   auto net_blobs = net_->blobs();
   for (const std::pair<string, Tensor>& in: inputs) {
@@ -117,8 +141,6 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
       std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
     }
   }
-
-//  LOG(INFO) << ">> BATCH " << batch_size;
   
   // run the inference
   net_->Forward();
@@ -153,6 +175,27 @@ Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string traine
   }
   // TODO(rayg): this can abort
   net_->CopyTrainedLayersFrom(param);
+  return Status::OK();
+}
+
+Status CaffeServingSession::Reshape(unsigned int batch_size)
+{
+  if (batch_size <= 0) { return errors::InvalidArgument("batch_size must be at least 1"); }
+  if (batch_size_ == batch_size) { return Status::OK(); }
+
+  for (int idx : net_->input_blob_indices()) {
+    auto& blob = *(net_->blobs().at(idx));
+    std::vector<int> new_shape{ blob.shape() };
+
+    if (new_shape.size() > 1 && new_shape[0] > 0) {
+      new_shape[0] = batch_size;
+      blob.Reshape(new_shape);
+    }
+  }
+  net_->Reshape();
+  batch_size_ = batch_size;
+
+  LOG(INFO) << "Reshaped Network (batch_size=" << batch_size_ << ").";
   return Status::OK();
 }
 
