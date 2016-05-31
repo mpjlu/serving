@@ -73,13 +73,11 @@ CAFFE_LAYERS_OBJS = [
 
 genrule(
     name = "configure",
-    srcs = glob(
-        ["**/*"],
-    ),
+    srcs = [],
+    message = "Building Caffe",
     outs = ["lib/libcaffe.a", "lib/libproto.a", "include/caffe/proto/caffe.pb.h"],
     cmd = '''
         srcdir=$$(pwd);
-        pushd external/caffe_git;
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
         pushd $$workdir;
         cmake $$srcdir/external/caffe_git         \
@@ -90,11 +88,10 @@ genrule(
             -DBUILD_python=OFF                    \
             -DBUILD_python_layer=OFF              \
             -DUSE_OPENCV=OFF                      \
-            -DBUILD_SHARED_LIBS=OFF;                
+            -DBUILD_SHARED_LIBS=OFF;
         cmake --build .;
         cmake --build . --target install;
-        popd; 
-        popd; 
+        popd;
         rm -rf $$workdir;
         ''',
 )
@@ -105,7 +102,7 @@ genrule(
 #   need to know the layer names upfront.
 genrule(
     name = "caffe-extract",
-    srcs = ["lib/libcaffe.a"],
+    srcs = [":configure","lib/libcaffe.a"],
     outs = ["libcaffe.a.dir/" + o for o in CAFFE_LAYERS_OBJS],
     cmd = '''
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
