@@ -13,6 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "caffe/net.hpp"
+#include "caffe/blob.hpp"
+#include "caffe/proto/caffe.pb.h"
+#include "caffe/util/io.hpp"
+
+#if CUDA_VERSION >= 7050
+#define EIGEN_HAS_CUDA_FP16
+#endif
+
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
 
 #include <memory>
@@ -26,11 +35,6 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/framework/tensor_shape.h"
-
-#include "caffe/net.hpp"
-#include "caffe/blob.hpp"
-#include "caffe/proto/caffe.pb.h"
-#include "caffe/util/io.hpp"
 
 namespace tensorflow {
 namespace serving {
@@ -86,6 +90,8 @@ CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph)
       << "\n  outputs: " << output_blob_map_.size() 
       << "\n  initial batch-size: " << batch_size_;
 }
+
+CaffeServingSession::~CaffeServingSession() = default;
 
 Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& inputs,
                                 const std::vector<string>& output_tensor_names,

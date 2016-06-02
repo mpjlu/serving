@@ -1,3 +1,4 @@
+load("@//third_party:caffe.bzl", "if_cuda")
 package(default_visibility = ["//visibility:public"])
 
 CAFFE_LAYERS_OBJS = [
@@ -73,27 +74,42 @@ CAFFE_LAYERS_OBJS = [
 
 genrule(
     name = "configure",
-    srcs = [],
-    message = "Building Caffe",
-    outs = ["lib/libcaffe.a", "lib/libproto.a", "include/caffe/proto/caffe.pb.h"],
+    srcs = if_cuda([
+        "@tf//third_party/gpus/cuda:include/cudnn.h",
+        "@tf//third_party/gpus/cuda:lib64/libcudnn.so"
+    ]),
+    message = "Building Caffe (this may take a while)",
+    outs = [
+        "lib/libcaffe.a", 
+        "lib/libproto.a", 
+        "include/caffe/proto/caffe.pb.h"
+    ],
     cmd = '''
         srcdir=$$(pwd);
-        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
+        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); ''' + 
+        if_cuda(''' 
+            cudnn_includes=$(location @tf//third_party/gpus/cuda:include/cudnn.h);
+            cudnn_lib=$(location @tf//third_party/gpus/cuda:lib64/libcudnn.so);
+            extra_cmake_opts="-DCPU_ONLY:bool=OFF
+                              -DUSE_CUDNN:bool=ON 
+                              -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
+                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''', 
+            '''extra_cmake_opts="-DCPU_ONLY:bool=ON";''') +
+        '''
         pushd $$workdir;
         cmake $$srcdir/external/caffe_git         \
             -DCMAKE_INSTALL_PREFIX=$$srcdir/$(@D) \
-            -DCPU_ONLY=ON                         \
             -DCMAKE_BUILD_TYPE=Release            \
             -DBLAS:string="open"                  \
             -DBUILD_python=OFF                    \
             -DBUILD_python_layer=OFF              \
             -DUSE_OPENCV=OFF                      \
-            -DBUILD_SHARED_LIBS=OFF;
-        cmake --build .;
+            -DBUILD_SHARED_LIBS=OFF               \
+            $${extra_cmake_opts};
+        cmake --build . -- -j 8;
         cmake --build . --target install;
         popd;
-        rm -rf $$workdir;
-        ''',
+        rm -rf $$workdir;''',
 )
 
 # TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
@@ -102,7 +118,7 @@ genrule(
 #   need to know the layer names upfront.
 genrule(
     name = "caffe-extract",
-    srcs = [":configure","lib/libcaffe.a"],
+    srcs = [":configure", "lib/libcaffe.a"],
     outs = ["libcaffe.a.dir/" + o for o in CAFFE_LAYERS_OBJS],
     cmd = '''
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
@@ -120,8 +136,13 @@ cc_library(
     name = "caffe",
     srcs = [":caffe-extract", "lib/libcaffe.a", "lib/libproto.a"],
     hdrs = glob(["include/**"]) + ["include/caffe/proto/caffe.pb.h"],
+    deps = if_cuda([
+	"@tf//third_party/gpus/cuda:cudnn", 
+	"@tf//third_party/gpus/cuda:cublas", 
+	"@tf//third_party/gpus/cuda:curand"
+    ]),
     includes = ["include/"],
-    defines = ["CPU_ONLY"],
+    defines = if_cuda([], ["CPU_ONLY"]),
     linkopts = [
         "-L/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
         "-lboost_system",

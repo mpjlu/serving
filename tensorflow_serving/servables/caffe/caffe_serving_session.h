@@ -22,13 +22,17 @@ limitations under the License.
 #include <algorithm>
 #include <unordered_map>
 
+#include "caffe/proto/caffe.pb.h"
+
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/lib/core/status.h"
 
 #include "tensorflow_serving/servables/tensorflow/serving_session.h"
 
-#include "caffe/net.hpp"
-#include "caffe/proto/caffe.pb.h"
+
+namespace caffe {
+ template<class T> class Net;
+}
 
 namespace tensorflow {
 namespace serving {
@@ -37,7 +41,7 @@ namespace serving {
 class CaffeServingSession : public ServingSession {
  public:
   CaffeServingSession(const caffe::NetParameter& graph);
-  virtual ~CaffeServingSession() = default;
+  virtual ~CaffeServingSession();
 
   Status CopyTrainedLayersFromBinaryProto(const string trained_filename);
 

@@ -15,11 +15,11 @@ limitations under the License.
 
 #pragma once
 
+#include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 #include "tensorflow_serving/batching/batching_session.h"
 #include "tensorflow_serving/batching/shared_batch_scheduler.h"
 #include "tensorflow_serving/resources/resources.pb.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"
-#include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 
 namespace tensorflow {
 namespace serving {

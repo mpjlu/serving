@@ -13,6 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "caffe/proto/caffe.pb.h"
+#include "caffe/util/io.hpp"
+#include "caffe/util/upgrade_proto.hpp"
+
+#if CUDA_VERSION >= 7050
+#define EIGEN_HAS_CUDA_FP16
+#endif
+
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 
 #include <string>
@@ -22,15 +30,12 @@ limitations under the License.
 #include "google/protobuf/any.pb.h"
 #include "google/protobuf/repeated_field.h"
 #include "google/protobuf/text_format.h"
+
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/io/path.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/types.h"
-
-#include "caffe/proto/caffe.pb.h"
-#include "caffe/util/io.hpp"
-#include "caffe/util/upgrade_proto.hpp"
 
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
 
