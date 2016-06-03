@@ -79,11 +79,11 @@ CAFFE_LAYERS_OBJS = [
 
 genrule(
     name = "configure",
+    message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
         "@tf//third_party/gpus/cuda:include/cudnn.h",
         "@tf//third_party/gpus/cuda:lib64/libcudnn.so" + tf_get_cudnn_version()
     ]),
-    message = "Building Caffe (this may take a while)",
     outs = [
         "lib/libcaffe.a", 
         "lib/libproto.a", 
@@ -133,8 +133,7 @@ genrule(
         fi
 
         mkdir -p $(@D);
-        cp $$SRC $(@D)/$$FILE;
-    ''' % tf_get_cuda_version(),
+        cp $$SRC $(@D)/$$FILE;''' % tf_get_cuda_version(),
 ) 
 
 # TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
@@ -159,12 +158,8 @@ genrule(
 
 cc_library(
     name = "curand",
-    srcs = [
-        "lib64/libcurand.so" + tf_get_cuda_version(),
-    ],
-    data = [
-        "lib64/libcurand.so" + tf_get_cuda_version()
-    ],
+    srcs = ["lib64/libcurand.so" + tf_get_cuda_version()],
+    data = ["lib64/libcurand.so" + tf_get_cuda_version()],
     linkstatic = 1
 )
 
@@ -173,12 +168,7 @@ cc_library(
     srcs = [":caffe-extract", "lib/libcaffe.a", "lib/libproto.a"],
     hdrs = glob(["include/**"]) + ["include/caffe/proto/caffe.pb.h"],
     deps = if_cuda([
-	"@tf//third_party/gpus/cuda:cudnn", 
-	"@tf//third_party/gpus/cuda:cublas",
-        ":curand",
-    ]),
-    data = if_cuda([
-        "@tf//third_party/gpus/cuda:cudnn",
+        "@tf//third_party/gpus/cuda:cudnn", 
         "@tf//third_party/gpus/cuda:cublas",
         ":curand",
     ]),
@@ -186,6 +176,7 @@ cc_library(
     defines = if_cuda([], ["CPU_ONLY"]),
     linkopts = [
         "-L/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
+        "-Wl,-rpath,/usr/local/lib:/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
         "-lboost_system",
         "-lboost_thread",
         "-lboost_filesystem",
@@ -202,7 +193,6 @@ cc_library(
         "-lleveldb",
         "-lsnappy",
         "-lopenblas",
-        "-Wl,-rpath,/usr/local/lib:/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
     ],
     visibility = ["//visibility:public"],
     alwayslink = 1,
