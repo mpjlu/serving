@@ -78,7 +78,7 @@ cc_binary(
         "mnist_inference_caffe.cc",
     ],
     linkopts = ["-lm"],
-    data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
+    data = [],
     deps = [
         "@grpc//:grpc++",
         "@tf//tensorflow/core:core_cpu",
