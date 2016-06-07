@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "google/protobuf/wrappers.proto";
+// include TFS session_bundle_config for batching paramaters
 import "tensorflow_serving/servables/tensorflow/session_bundle_config.proto";
 
 package tensorflow.serving;

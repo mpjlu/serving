@@ -19,39 +19,44 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
-#include "caffe/net.hpp"
-
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/io/inputbuffer.h"
 #include "tensorflow/core/lib/strings/str_util.h"
-//#include "tensorflow/core/platform/env.h"
-//#include "tensorflow/core/platform/types.h
+
+#include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
+#include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 
 namespace tensorflow {
 namespace serving {
-namespace {
 
-using Caffe = caffe::Net<float>;
-
-// Populates a caffe from a file located at 'path', in format 'format'.
-Status LoadCaffeFromFile(const string& path,
-                           const CaffeSourceAdapterConfig::Format& format,
-                           std::unique_ptr<Caffe>* caffe) {
-  caffe->reset(new Caffe(path, caffe::TEST));
+Status CaffeSourceAdapter::Create(
+    const CaffeSourceAdapterConfig& config,
+    std::unique_ptr<CaffeSourceAdapter>* adapter) {
+  std::unique_ptr<CaffeSessionBundleFactory> bundle_factory;
+  TF_RETURN_IF_ERROR(
+      CaffeSessionBundleFactory::Create(config.config(), &bundle_factory));
+  adapter->reset(new CaffeSourceAdapter(std::move(bundle_factory)));
   return Status::OK();
 }
-}  // namespace
 
 CaffeSourceAdapter::CaffeSourceAdapter(
-    const CaffeSourceAdapterConfig& config)
-  : SimpleLoaderSourceAdapter<StoragePath, Caffe>(
-          [config](const StoragePath& path, std::unique_ptr<Caffe>* caffe) {
-            return LoadCaffeFromFile(path, config.format(), caffe);
-          },
-          // Decline to supply a resource footprint estimate.
-          SimpleLoaderSourceAdapter<StoragePath,
-                                    Caffe>::EstimateNoResources()) {}
+    std::unique_ptr<CaffeSessionBundleFactory> bundle_factory)
+    : bundle_factory_(std::move(bundle_factory)) {}
+
+Status CaffeSourceAdapter::Convert(const StoragePath& path,
+                                           std::unique_ptr<Loader>* loader) {
+  auto servable_creator = [this, path](std::unique_ptr<CaffeSessionBundle>* bundle) {
+    return this->bundle_factory_->CreateSessionBundle(path, bundle);
+  };
+  auto resource_estimator = [this, path](ResourceAllocation* estimate) {
+    return this->bundle_factory_->EstimateResourceRequirement(path, estimate);
+  };
+  loader->reset(
+      new SimpleLoader<CaffeSessionBundle>(servable_creator, resource_estimator));
+  return Status::OK();
+}
+
 
 }  // namespace serving
 }  // namespace tensorflow

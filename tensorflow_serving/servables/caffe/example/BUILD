@@ -30,12 +30,12 @@ py_binary(
 genrule(
     name = "mnist_pretrained_caffe",
     cmd = '''
-        rm -rf $(@D)/00000023;
-        $(locations :mnist_caffe_fetch) --version=23 $(@D);
+        rm -rf $(@D)/mnist_pretrained_caffe/00000023;
+        $(locations :mnist_caffe_fetch) --version=23 $(@D)/mnist_pretrained_caffe;
         ''', 
     outs = [
-        "00000023/deploy.prototxt",
-        "00000023/weights.caffemodel",
+        "mnist_pretrained_caffe/00000023/deploy.prototxt",
+        "mnist_pretrained_caffe/00000023/weights.caffemodel",
     ],
     tools = [
         ":mnist_caffe_fetch",

@@ -16,81 +16,76 @@ limitations under the License.
 #include "tensorflow_serving/servables/caffe/caffe_source_adapter.h"
 
 #include <memory>
-#include <unordered_map>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-#include "caffe/net.hpp"
-#include "tensorflow/core/lib/core/errors.h"
+#include "tensorflow/core/framework/tensor_testutil.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/lib/io/path.h"
-#include "tensorflow/core/lib/strings/strcat.h"
-#include "tensorflow/core/platform/env.h"
-#include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow_serving/core/loader.h"
 #include "tensorflow_serving/core/servable_data.h"
+#include "tensorflow_serving/core/servable_id.h"
+#include "tensorflow_serving/core/source_adapter.h"
 #include "tensorflow_serving/core/test_util/source_adapter_test_util.h"
+#include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"
 #include "tensorflow_serving/servables/caffe/caffe_source_adapter.pb.h"
-#include "tensorflow_serving/util/any_ptr.h"
-
-using ::testing::Pair;
-using ::testing::UnorderedElementsAre;
+#include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
+#include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
+#include "tensorflow_serving/test_util/test_util.h"
 
 namespace tensorflow {
 namespace serving {
 namespace {
 
-using Net = caffe::Net<float>;
+using test_util::EqualsProto;
 
-// Writes the given hashmap to a file.
-Status WriteCaffeToFile(const CaffeSourceAdapterConfig::Format format,
-                        const string& file_name, const std::string& model_definition) {
-  WritableFile* file_raw;
-  TF_RETURN_IF_ERROR(Env::Default()->NewWritableFile(file_name, &file_raw));
-  std::unique_ptr<WritableFile> file(file_raw);
-  file->Append(model_definition);
-  TF_RETURN_IF_ERROR(file->Close());
-  return Status::OK();
-}
+class CaffeSourceAdapterTest : public ::testing::Test {
+ protected:
+  CaffeSourceAdapterTest()
+      : export_dir_(test_util::TestSrcDirPath(
+          "servables/caffe/example/mnist_pretrained_caffe/00000023")) {}
 
-TEST(CaffeSourceAdapter, Basic) {
-  const auto format = CaffeSourceAdapterConfig::SIMPLE_CSV;
-  const string file = io::JoinPath(testing::TmpDir(), "Basic");
+  // Test data path, to be initialized to point at an export of half-plus-two.
+  const string export_dir_;
 
-  TF_ASSERT_OK(
-      WriteCaffeToFile(format, file, R"(
-          name: "LeNet"
-          layer {
-            name: "data"
-            type: "Input"
-            top: "data"
-            input_param { shape: { dim: 64 dim : 1 dim : 28 dim : 28 } }
-          }
-      )"));
+  void TestSessionBundleSourceAdapter(
+      const CaffeSourceAdapterConfig& config) {
 
-  CaffeSourceAdapterConfig config;
-  config.set_format(format);
+    std::unique_ptr<CaffeSourceAdapter> adapter;
+    TF_CHECK_OK(CaffeSourceAdapter::Create(config, &adapter));
 
-  auto adapter =
-      std::unique_ptr<CaffeSourceAdapter>(new CaffeSourceAdapter(config));
-  
-  ServableData<std::unique_ptr<Loader>> loader_data =
-      test_util::RunSourceAdapter(file, adapter.get());
-  
-  TF_ASSERT_OK(loader_data.status());
+    std::cout << "export dir: " << export_dir_ << '\n';
 
-  std::unique_ptr<Loader> loader = loader_data.ConsumeDataOrDie();
+    ServableData<std::unique_ptr<Loader>> loader_data =
+        test_util::RunSourceAdapter(export_dir_, adapter.get());
+    TF_ASSERT_OK(loader_data.status());
+    std::unique_ptr<Loader> loader = loader_data.ConsumeDataOrDie();
 
-  TF_ASSERT_OK(loader->Load(ResourceAllocation()));
+    // We should get a non-empty resource estimate, and we should get the same
+    // value twice (via memoization).
+    ResourceAllocation first_resource_estimate;
+    TF_ASSERT_OK(loader->EstimateResources(&first_resource_estimate));
+    EXPECT_FALSE(first_resource_estimate.resource_quantities().empty());
+    
+    ResourceAllocation second_resource_estimate;
+    TF_ASSERT_OK(loader->EstimateResources(&second_resource_estimate));
+    EXPECT_THAT(second_resource_estimate, EqualsProto(first_resource_estimate));
 
-  const Net* model = loader->servable().get<Net>();
-  EXPECT_EQ(model->name(), "LeNet");
-  
-  loader->Unload();
+    TF_ASSERT_OK(loader->Load(ResourceAllocation()));
+
+    const CaffeSessionBundle* bundle = loader->servable().get<CaffeSessionBundle>();
+    loader->Unload();
+  }
+};
+
+TEST_F(CaffeSourceAdapterTest, Basic) {
+  const CaffeSourceAdapterConfig config;
+  TestSessionBundleSourceAdapter(config);
 }
 
 }  // namespace

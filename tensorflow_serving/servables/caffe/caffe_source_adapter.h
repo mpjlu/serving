@@ -17,28 +17,37 @@ limitations under the License.
 #include <string>
 #include <unordered_map>
 
-#include "caffe/net.hpp"
-
 #include "tensorflow_serving/core/simple_loader.h"
 #include "tensorflow_serving/core/source_adapter.h"
 #include "tensorflow_serving/core/storage_path.h"
 #include "tensorflow_serving/servables/caffe/caffe_source_adapter.pb.h"
+#include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
 
 namespace tensorflow {
 namespace serving {
 
-// A SourceAdapter for string-string hashmaps. It takes storage paths that give
-// the locations of serialized hashmaps (in the format indicated in the config)
-// and produces loaders for them.
+
 class CaffeSourceAdapter
-    : public SimpleLoaderSourceAdapter<StoragePath,
-                                       caffe::Net<float>> {
+    : public UnarySourceAdapter<StoragePath, std::unique_ptr<Loader>> {
  public:
-  explicit CaffeSourceAdapter(const CaffeSourceAdapterConfig& config);
+  static Status Create(const CaffeSourceAdapterConfig& config,
+                       std::unique_ptr<CaffeSourceAdapter>* adapter);
+
+  ~CaffeSourceAdapter() override = default;
 
  private:
+  explicit CaffeSourceAdapter(
+      std::unique_ptr<CaffeSessionBundleFactory> bundle_factory);
+
+  Status Convert(const StoragePath& path,
+                 std::unique_ptr<Loader>* loader) override;
+
+  std::unique_ptr<CaffeSessionBundleFactory> bundle_factory_;
+
   TF_DISALLOW_COPY_AND_ASSIGN(CaffeSourceAdapter);
 };
+
+
 
 }  // namespace serving
 }  // namespace tensorflow

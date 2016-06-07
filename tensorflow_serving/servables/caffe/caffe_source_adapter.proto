@@ -1,16 +1,10 @@
 syntax = "proto3";
 
+import "tensorflow_serving/servables/caffe/caffe_session_bundle_config.proto";
+
 package tensorflow.serving;
 
-// Config proto for CaffeSourceAdapter.
+// Config proto for SessionBundleSourceAdapter.
 message CaffeSourceAdapterConfig {
-  // The format used by the file containing a serialized hashmap.
-  enum Format {
-    // A simple kind of CSV text file of the form:
-    //  key0,value0\n
-    //  key1,value1\n
-    //  ...
-    SIMPLE_CSV = 0;
-  }
-  Format format = 1;
+  CaffeSessionBundleConfig config = 1;
 }
