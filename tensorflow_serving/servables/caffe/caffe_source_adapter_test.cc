@@ -59,8 +59,6 @@ class CaffeSourceAdapterTest : public ::testing::Test {
     std::unique_ptr<CaffeSourceAdapter> adapter;
     TF_CHECK_OK(CaffeSourceAdapter::Create(config, &adapter));
 
-    std::cout << "export dir: " << export_dir_ << '\n';
-
     ServableData<std::unique_ptr<Loader>> loader_data =
         test_util::RunSourceAdapter(export_dir_, adapter.get());
     TF_ASSERT_OK(loader_data.status());
