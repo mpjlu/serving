@@ -77,21 +77,43 @@ CAFFE_WELL_KNOWN_LAYERS = [
     "layer_factory.cpp.o",
 ]
 
+genquery(
+    name = "protobuf-root",
+    expression = "@tf//google/protobuf:protobuf_lite",
+    scope = ["@tf//google/protobuf:protobuf_lite"],
+    opts = ["--output=location"]
+)
+
 genrule(
     name = "configure",
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
         "@tf//third_party/gpus/cuda:include/cudnn.h",
         "@tf//third_party/gpus/cuda:lib64/libcudnn.so" + tf_get_cudnn_version()
-    ]),
+    ]) + [
+        ":protobuf-root", 
+        "@tf//google/protobuf:protoc", 
+        "@tf//google/protobuf:protobuf_lite"
+    ],
     outs = [
         "lib/libcaffe.a", 
         "lib/libproto.a", 
         "include/caffe/proto/caffe.pb.h"
     ],
-    cmd = '''
+    cmd = 
+        # build dir for cmake.
+        # Adopt protobuf from bazel.
+        '''
         srcdir=$$(pwd);
-        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); ''' + 
+        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
+
+        protobuf_incl=$$(grep -oP "^/\\\S*(?=/)" $(location :protobuf-root))/src;
+        protoc=$$srcdir/$(location @tf//google/protobuf:protoc);
+        protolib=$$srcdir/$$(echo "$(locations @tf//google/protobuf:protobuf_lite)" | grep -o "\\\S*/libprotobuf_lite.a"); ''' + 
+
+        # extra cmake options during cuda configuration,
+        # adopting the tensorflow cuda configuration where
+        # sensible.
         if_cuda(''' 
             cudnn_includes=$(location @tf//third_party/gpus/cuda:include/cudnn.h);
             cudnn_lib=$(location @tf//third_party/gpus/cuda:lib64/libcudnn.so%s);
@@ -100,6 +122,10 @@ genrule(
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
                               -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % tf_get_cudnn_version(), 
             '''extra_cmake_opts="-DCPU_ONLY:bool=ON";''') +
+
+        # configure cmake.
+        # openblas must be installed for this to 
+        # succeed.
         '''
         pushd $$workdir;
         cmake $$srcdir/external/caffe_git         \
@@ -110,9 +136,21 @@ genrule(
             -DBUILD_python_layer=OFF              \
             -DUSE_OPENCV=OFF                      \
             -DBUILD_SHARED_LIBS=OFF               \
-            $${extra_cmake_opts};
-        cmake --build . -- -j 4;
-        cmake --build . --target install;
+            -DPROTOBUF_INCLUDE_DIR=$$protobuf_incl\
+            -DPROTOBUF_PROTOC_EXECUTABLE=$$protoc \
+            -DPROTOBUF_LIBRARY=$$protolib         \
+            $${extra_cmake_opts}; ''' +
+
+        # build libcaffe.a -- note we avoid building the 
+        # caffe tools because 1) we don't need them anyway
+        # and 2) they will fail to link because only 
+        # protobuf_lite.a (and not libprotobuf.so) is
+        # specified in PROTOBUF_LIBRARY.
+        '''
+        cmake --build . --target caffe -- -j 4;
+        cp -r ./lib $$srcdir/$(@D)
+        cp -r ./include $$srcdir/$(@D)
+        
         popd;
         rm -rf $$workdir;''',
 )
@@ -171,8 +209,9 @@ cc_library(
         "@tf//third_party/gpus/cuda:cudnn", 
         "@tf//third_party/gpus/cuda:cublas",
         ":curand",
-        "@tf//google/protobuf:protobuf",
-    ]),
+    ]) + [
+        "@tf//google/protobuf:protobuf"
+    ],
     includes = ["include/"],
     defines = if_cuda([], ["CPU_ONLY"]),
     linkopts = [
