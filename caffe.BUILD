@@ -136,6 +136,8 @@ genrule(
             -DBUILD_python_layer=OFF              \
             -DUSE_OPENCV=OFF                      \
             -DBUILD_SHARED_LIBS=OFF               \
+            -DUSE_LEVELDB=OFF                     \
+            -DUSE_LMDB=OFF                        \
             -DPROTOBUF_INCLUDE_DIR=$$protobuf_incl\
             -DPROTOBUF_PROTOC_EXECUTABLE=$$protoc \
             -DPROTOBUF_LIBRARY=$$protolib         \
@@ -228,9 +230,6 @@ cc_library(
         "-lz",
         "-ldl",
         "-lm",
-        "-llmdb",
-        "-lleveldb",
-        "-lsnappy",
         "-lopenblas",
     ],
     visibility = ["//visibility:public"],
