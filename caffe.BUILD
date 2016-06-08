@@ -6,7 +6,7 @@ load("@tf//tensorflow/core:platform/default/build_config.bzl",
 
 package(default_visibility = ["//visibility:public"])
 
-CAFFE_LAYERS_OBJS = [
+CAFFE_WELL_KNOWN_LAYERS = [
     "threshold_layer.cpp.o",
     "tile_layer.cpp.o",
     "window_data_layer.cpp.o",
@@ -143,7 +143,7 @@ genrule(
 genrule(
     name = "caffe-extract",
     srcs = [":configure", "lib/libcaffe.a"],
-    outs = ["libcaffe.a.dir/" + o for o in CAFFE_LAYERS_OBJS],
+    outs = ["libcaffe.a.dir/" + o for o in CAFFE_WELL_KNOWN_LAYERS],
     cmd = '''
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
         cp $(location :lib/libcaffe.a) $$workdir; 
