@@ -20,7 +20,6 @@ limitations under the License.
 #include "tensorflow/core/lib/io/path.h"
 #include "tensorflow/core/platform/regexp.h"
 #include "tensorflow/core/platform/types.h"
-// #include "tensorflow/core/public/session_options.h"
 #include "tensorflow_serving/resources/resource_values.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"

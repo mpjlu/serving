@@ -70,10 +70,6 @@ unsigned int BatchSizeOf(const caffe::Net<float>& net) {
   return x;
 }
 
-CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph) 
-    : net_{ new caffe::Net<float>(graph) }
-    , batch_size_{ 0 }
-{
   std::vector<string> blobs = net_->blob_names();
 
   for (int idx : net_->input_blob_indices()) {
@@ -81,6 +77,11 @@ CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph)
   }
   for (int idx : net_->output_blob_indices()) {
     output_blob_map_.emplace(blobs[idx], idx);
+CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph, 
+                                         const CaffeSessionOptions& opts) 
+    : net_{ nullptr }
+    , batch_size_{ 0 }
+{
   }
 
   batch_size_ = BatchSizeOf(*net_);

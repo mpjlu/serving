@@ -45,10 +45,10 @@ namespace {
 
 // Create a network using the given options and load the graph.
 Status CreateSessionFromGraphDef(
-    const CaffeSessionOptions& options, 
+    const CaffeSessionOptions& options,
     const caffe::NetParameter& graph,
     std::unique_ptr<CaffeServingSession>* session) {
-  session->reset(new CaffeServingSession(graph));
+  session->reset(new CaffeServingSession(graph, options));
   return Status::OK();
 }
 

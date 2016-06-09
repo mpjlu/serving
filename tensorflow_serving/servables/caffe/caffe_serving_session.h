@@ -26,10 +26,9 @@ limitations under the License.
 
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/lib/core/status.h"
-
 #include "tensorflow_serving/servables/tensorflow/serving_session.h"
 
-
+// forward decl caffe::Net
 namespace caffe {
  template<class T> class Net;
 }
@@ -37,10 +36,13 @@ namespace caffe {
 namespace tensorflow {
 namespace serving {
 
+// No session options for Caffe
+struct CaffeSessionOptions {};
+
 // Encapsulates a caffe network 
 class CaffeServingSession : public ServingSession {
  public:
-  CaffeServingSession(const caffe::NetParameter& graph);
+  CaffeServingSession(const caffe::NetParameter& graph, const CaffeSessionOptions& opts);
   virtual ~CaffeServingSession();
 
   Status CopyTrainedLayersFromBinaryProto(const string trained_filename);
