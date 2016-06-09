@@ -80,7 +80,6 @@ cc_binary(
     linkopts = ["-lm"],
     deps = [
         "@grpc//:grpc++",
-        "@tf//tensorflow/core:framework",
         "@tf//tensorflow/core:lib",
         ":mnist_inference_proto",
         "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
@@ -123,7 +122,6 @@ cc_binary(
     linkopts = ["-lm"],
     deps = [
         "@grpc//:grpc++",
-        "@tf//tensorflow/core:framework",
         "@tf//tensorflow/core:lib",
         ":mnist_inference_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",

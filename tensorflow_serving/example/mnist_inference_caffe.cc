@@ -101,9 +101,6 @@ class MnistServiceImpl final : public MnistService::Service {
                 input.flat<float>().data());
     std::vector<Tensor> outputs;
 
-    // WARNING(break-tutorial-inline-code): The following code snippet is
-    // in-lined in tutorials, please update tutorial documents accordingly
-    // whenever code changes.
     const tensorflow::Status status = bundle_->session->Run(
       {{ "data", input }}, { "prob" }, {}, &outputs);
     if (!status.ok()) {
@@ -171,7 +168,7 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "Error parsing command line flags.";
   }
   if (argc != 2) {
-    LOG(FATAL) << "Usage: mnist_inference --port=9000 /path/to/export";
+    LOG(FATAL) << "Usage: mnist_inference_caffe --port=9000 /path/to/export";
   }
   const string bundle_path(argv[1]);
 

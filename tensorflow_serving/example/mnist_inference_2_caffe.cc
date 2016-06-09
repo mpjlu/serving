@@ -46,7 +46,6 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/env.h"
-#include "tensorflow/core/platform/init_main.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/command_line_flags.h"
 #include "tensorflow_serving/batching/basic_batch_scheduler.h"
@@ -404,10 +403,9 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "Error parsing command line flags.";
   }
   if (argc != 2) {
-    LOG(FATAL) << "Usage: mnist_inference_2 --port=9000 /path/to/exports";
+    LOG(FATAL) << "Usage: mnist_inference_caffe_2 --port=9000 /path/to/exports";
   }
   const string export_base_path(argv[1]);
-  tensorflow::port::InitMain(argv[0], &argc, &argv);
 
   // WARNING(break-tutorial-inline-code): The following code snippet is
   // in-lined in tutorials, please update tutorial documents accordingly
