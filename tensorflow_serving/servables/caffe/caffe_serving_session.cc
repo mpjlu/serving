@@ -58,7 +58,8 @@ Tensor AsTensor(gtl::ArraySlice<T> vals, const TensorShape& shape) {
 // A guesstimate of the batch size; assume the outermost
 // dimension of the input blob(s) indicates the batch size,
 // unless the input is 1-dimensional, in which case assume
-// batch size of 1.
+// batch size of 1. (I couldn't find much concrete 
+// documentation on this.)
 unsigned int BatchSizeOf(const caffe::Net<float>& net) {
   unsigned int x = 1;
   for (int idx : net.input_blob_indices()) {
@@ -70,18 +71,48 @@ unsigned int BatchSizeOf(const caffe::Net<float>& net) {
   return x;
 }
 
-  std::vector<string> blobs = net_->blob_names();
-
-  for (int idx : net_->input_blob_indices()) {
-    input_blob_map_.emplace(blobs[idx], idx);
+// Parse GPU ids or use all available devices
+void GetGPUs(std::vector<int>* gpus) {
+  int count = 0;
+#ifndef CPU_ONLY
+  CUDA_CHECK(cudaGetDeviceCount(&count));
+#endif
+  for (int i = 0; i < count; ++i) {
+    gpus->push_back(i);
   }
-  for (int idx : net_->output_blob_indices()) {
-    output_blob_map_.emplace(blobs[idx], idx);
+}
+
+bool TryAssignGPU() 
+{
+  std::vector<int> gpus;
+  GetGPUs(&gpus);
+
+  if (gpus.size() != 0) {
+    caffe::Caffe::SetDevice(gpus[0]);
+    caffe::Caffe::set_mode(caffe::Caffe::GPU);
+    return true;
+  } 
+  else {
+    caffe::Caffe::set_mode(caffe::Caffe::CPU);
+    return false;
+  }
+}
+
 CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph, 
                                          const CaffeSessionOptions& opts) 
     : net_{ nullptr }
     , batch_size_{ 0 }
 {
+  LOG(INFO) << "Caffe execution mode: " << (TryAssignGPU() ? "GPU" : "CPU");
+  net_.reset(new caffe::Net<float>(graph));
+  {
+    std::vector<string> blobs = net_->blob_names();
+    for (int idx : net_->input_blob_indices()) {
+      input_blob_map_.emplace(blobs[idx], idx);
+    }
+    for (int idx : net_->output_blob_indices()) {
+      output_blob_map_.emplace(blobs[idx], idx);
+    }
   }
 
   batch_size_ = BatchSizeOf(*net_);
@@ -208,5 +239,3 @@ Status CaffeServingSession::Reshape(unsigned int batch_size)
 
 } // namespace serving
 } // namespace tensorflow
-
-
