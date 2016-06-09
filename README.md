@@ -105,3 +105,7 @@ __Note:__ To ensure any custom layer is picked up by the build, you currently wi
 - The Caffe Servable is implemented in `serving/servables/caffe` and is based on the Tensorflow servable.
 
 - To be able to reuse as much of the TFS infastructure as possible (e.g. batching), and to be able to create server frontends which can be switched to/from Caffe and Tensorflow with minimum effort, the core Caffe servable, the `CaffeServingSession`, derives from the abstract `tensorflow::serving::ServingSession` class, essentially encapsulating the Caffe model as though it were a Tensorflow one.
+
+---
+
+__(C) Copyright IBM Corp. / Google Inc. 2016. All Rights Reserved.__
