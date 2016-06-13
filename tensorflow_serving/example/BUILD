@@ -44,7 +44,7 @@ py_binary(
         "mnist_export.py",
     ],
     deps = [
-        "@tf//tensorflow:tensorflow_py",
+        "@org_tensorflow//tensorflow:tensorflow_py",
         ":mnist_input_data",
         "//tensorflow_serving/session_bundle:exporter",
     ],
@@ -58,11 +58,11 @@ cc_binary(
     linkopts = ["-lm"],
     deps = [
         "@grpc//:grpc++",
-        "@tf//tensorflow/core:core_cpu",
-        "@tf//tensorflow/core:framework",
-        "@tf//tensorflow/core:lib",
-        "@tf//tensorflow/core:protos_all_cc",
-        "@tf//tensorflow/core:tensorflow",
+        "@org_tensorflow//tensorflow/core:core_cpu",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core:tensorflow",
         ":mnist_inference_proto",
         "//tensorflow_serving/servables/tensorflow:session_bundle_config_proto",
         "//tensorflow_serving/servables/tensorflow:session_bundle_factory",
@@ -96,10 +96,10 @@ cc_binary(
     linkopts = ["-lm"],
     deps = [
         "@grpc//:grpc++",
-        "@tf//tensorflow/core:framework",
-        "@tf//tensorflow/core:lib",
-        "@tf//tensorflow/core:protos_all_cc",
-        "@tf//tensorflow/core:tensorflow",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core:tensorflow",
         ":mnist_inference_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
@@ -146,7 +146,7 @@ py_binary(
         "mnist_inference_pb2.py",
     ],
     deps = [
-        "@tf//tensorflow:tensorflow_py",
+        "@org_tensorflow//tensorflow:tensorflow_py",
         ":mnist_input_data",
     ],
 )
@@ -166,7 +166,7 @@ py_binary(
     ],
     deps = [
         "@inception_model//inception",
-        "@tf//tensorflow:tensorflow_py",
+        "@org_tensorflow//tensorflow:tensorflow_py",
         "//tensorflow_serving/session_bundle:exporter",
     ],
 )
@@ -179,10 +179,10 @@ cc_binary(
     linkopts = ["-lm"],
     deps = [
         "@grpc//:grpc++",
-        "@tf//tensorflow/core:framework",
-        "@tf//tensorflow/core:lib",
-        "@tf//tensorflow/core:protos_all_cc",
-        "@tf//tensorflow/core:tensorflow",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core:tensorflow",
         ":inception_inference_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
@@ -203,5 +203,5 @@ py_binary(
         "inception_client.py",
         "inception_inference_pb2.py",
     ],
-    deps = ["@tf//tensorflow:tensorflow_py"],
+    deps = ["@org_tensorflow//tensorflow:tensorflow_py"],
 )
