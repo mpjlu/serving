@@ -89,7 +89,7 @@ genrule(
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
         "@org_tensorflow//third_party/gpus/cuda:include/cudnn.h",
-        "@org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so" + cudnn_sdk_version()
+        "@org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so." + cudnn_sdk_version()
     ]) + [
         ":protobuf-root", 
         "@protobuf//:protoc", 
@@ -116,7 +116,7 @@ genrule(
         # sensible.
         if_cuda(''' 
             cudnn_includes=$(location @org_tensorflow//third_party/gpus/cuda:include/cudnn.h);
-            cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so%s);
+            cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so.%s);
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
                               -DUSE_CUDNN:bool=ON 
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
@@ -160,11 +160,11 @@ genrule(
 genrule(
     name = "cuda-extras",
     srcs = ["@org_tensorflow//third_party/gpus/cuda:cuda.config"],
-    outs = ["lib64/libcurand.so" + cuda_sdk_version()],
+    outs = ["lib64/libcurand.so." + cuda_sdk_version()],
     cmd  = '''
         source $(location @org_tensorflow//third_party/gpus/cuda:cuda.config) || exit -1;
         CUDA_TOOLKIT_PATH=$${CUDA_TOOLKIT_PATH:-/usr/local/cuda};
-        FILE=libcurand.so%s;
+        FILE=libcurand.so.%s;
         SRC=$$CUDA_TOOLKIT_PATH/lib64/$$FILE;
 
         if test ! -e $$SRC; then
@@ -198,8 +198,8 @@ genrule(
 
 cc_library(
     name = "curand",
-    srcs = ["lib64/libcurand.so" + cuda_sdk_version()],
-    data = ["lib64/libcurand.so" + cuda_sdk_version()],
+    srcs = ["lib64/libcurand.so." + cuda_sdk_version()],
+    data = ["lib64/libcurand.so." + cuda_sdk_version()],
     linkstatic = 1
 )
 
