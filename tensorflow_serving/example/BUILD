@@ -85,6 +85,9 @@ cc_binary(
         "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
         "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
         "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+        "//tensorflow_serving/session_bundle",
+        "//tensorflow_serving/session_bundle:manifest_proto",
+        "//tensorflow_serving/session_bundle:signature",
     ],
 )
 

@@ -289,6 +289,7 @@ void MnistServiceImpl::DoClassifyInBatch(
     return;
   }
 
+  // TODO(rayg): implement GetClassificationSignature for Caffe
   // Get the default signature of the graph.  Expected to be a
   // classification signature.
   tensorflow::serving::ClassificationSignature signature;

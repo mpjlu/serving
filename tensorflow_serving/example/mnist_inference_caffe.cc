@@ -48,9 +48,16 @@ limitations under the License.
 #include "tensorflow_serving/example/mnist_inference.grpc.pb.h"
 #include "tensorflow_serving/example/mnist_inference.pb.h"
 
+#include "tensorflow_serving/session_bundle/manifest.pb.h"
+#include "tensorflow_serving/session_bundle/session_bundle.h"
+#include "tensorflow_serving/session_bundle/signature.h"
+
+
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
+
+
 
 using grpc::InsecureServerCredentials;
 using grpc::Server;
@@ -58,7 +65,7 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 using grpc::StatusCode;
-//using tensorflow::serving::ClassificationSignature;
+using tensorflow::serving::ClassificationSignature;
 using tensorflow::gtl::ArraySlice;
 using tensorflow::serving::MnistRequest;
 using tensorflow::serving::MnistResponse;
@@ -87,6 +94,10 @@ class MnistServiceImpl final : public MnistService::Service {
  public:
   explicit MnistServiceImpl(std::unique_ptr<CaffeSessionBundle> bundle)
       : bundle_(std::move(bundle)) {
+    // TODO(rayg): GetClassificationSignature for caffe
+    signature_.mutable_input()->set_tensor_name("data");
+    signature_.mutable_scores()->set_tensor_name("prob");
+    signature_status_ = tensorflow::Status::OK();
 //  signature_status_ = tensorflow::serving::GetClassificationSignature(
 //      bundle_->meta_graph_def, &signature_);
   }
@@ -101,20 +112,20 @@ class MnistServiceImpl final : public MnistService::Service {
                 input.flat<float>().data());
     std::vector<Tensor> outputs;
 
+    // Run inference.
+    if (!signature_status_.ok()) {
+      return ToGRPCStatus(signature_status_);
+    }
+    // WARNING(break-tutorial-inline-code): The following code snippet is
+    // in-lined in tutorials, please update tutorial documents accordingly
+    // whenever code changes.
     const tensorflow::Status status = bundle_->session->Run(
-      {{ "data", input }}, { "prob" }, {}, &outputs);
+        {{signature_.input().tensor_name(), input}},
+        {signature_.scores().tensor_name()}, {}, &outputs);
     if (!status.ok()) {
       return ToGRPCStatus(status);
     }
 
-    // Transform inference output tensor to protobuf output.
-    // See minist_export.py for details.
-    if (outputs.size() != 1) {
-      return Status(StatusCode::INTERNAL,
-                    tensorflow::strings::StrCat(
-                        "expected one model output, got ", outputs.size()));
-    }
-    
     // Transform inference output tensor to protobuf output.
     // See minist_export.py for details.
     if (outputs.size() != 1) {
@@ -141,8 +152,8 @@ class MnistServiceImpl final : public MnistService::Service {
 
  private:
   std::unique_ptr<CaffeSessionBundle> bundle_;
-//tensorflow::Status signature_status_;
-//ClassificationSignature signature_;
+  tensorflow::Status signature_status_;
+  ClassificationSignature signature_;
 };
 
 void RunServer(int port, std::unique_ptr<CaffeSessionBundle> bundle) {
