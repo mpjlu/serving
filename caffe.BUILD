@@ -1,7 +1,7 @@
 load("@//third_party:caffe.bzl", "if_cuda")
-load("@tf//tensorflow/core:platform/default/build_config.bzl",
-     "tf_get_cuda_version",
-     "tf_get_cudnn_version",
+load("@org_tensorflow//third_party/gpus/cuda:platform.bzl",
+     "cuda_sdk_version",
+     "cudnn_sdk_version",
     )
 
 package(default_visibility = ["//visibility:public"])
@@ -79,8 +79,8 @@ CAFFE_WELL_KNOWN_LAYERS = [
 
 genquery(
     name = "protobuf-root",
-    expression = "@tf//google/protobuf:protobuf_lite",
-    scope = ["@tf//google/protobuf:protobuf_lite"],
+    expression = "@protobuf//:protobuf_lite",
+    scope = ["@protobuf//:protobuf_lite"],
     opts = ["--output=location"]
 )
 
@@ -88,12 +88,12 @@ genrule(
     name = "configure",
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
-        "@tf//third_party/gpus/cuda:include/cudnn.h",
-        "@tf//third_party/gpus/cuda:lib64/libcudnn.so" + tf_get_cudnn_version()
+        "@org_tensorflow//third_party/gpus/cuda:include/cudnn.h",
+        "@org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so" + cudnn_sdk_version()
     ]) + [
         ":protobuf-root", 
-        "@tf//google/protobuf:protoc", 
-        "@tf//google/protobuf:protobuf_lite"
+        "@protobuf//:protoc", 
+        "@protobuf//:protobuf_lite"
     ],
     outs = [
         "lib/libcaffe.a", 
@@ -108,19 +108,19 @@ genrule(
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
 
         protobuf_incl=$$(grep -oP "^/\\\S*(?=/)" $(location :protobuf-root))/src;
-        protoc=$$srcdir/$(location @tf//google/protobuf:protoc);
-        protolib=$$srcdir/$$(echo "$(locations @tf//google/protobuf:protobuf_lite)" | grep -o "\\\S*/libprotobuf_lite.a"); ''' + 
+        protoc=$$srcdir/$(location @protobuf//:protoc);
+        protolib=$$srcdir/$$(echo "$(locations @protobuf//:protobuf_lite)" | grep -o "\\\S*/libprotobuf_lite.a"); ''' + 
 
         # extra cmake options during cuda configuration,
         # adopting the tensorflow cuda configuration where
         # sensible.
         if_cuda(''' 
-            cudnn_includes=$(location @tf//third_party/gpus/cuda:include/cudnn.h);
-            cudnn_lib=$(location @tf//third_party/gpus/cuda:lib64/libcudnn.so%s);
+            cudnn_includes=$(location @org_tensorflow//third_party/gpus/cuda:include/cudnn.h);
+            cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so%s);
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
                               -DUSE_CUDNN:bool=ON 
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
-                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % tf_get_cudnn_version(), 
+                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_sdk_version(), 
             '''extra_cmake_opts="-DCPU_ONLY:bool=ON";''') +
 
         # configure cmake.
@@ -159,10 +159,10 @@ genrule(
 
 genrule(
     name = "cuda-extras",
-    srcs = ["@tf//third_party/gpus/cuda:cuda.config"],
-    outs = ["lib64/libcurand.so" + tf_get_cuda_version()],
+    srcs = ["@org_tensorflow//third_party/gpus/cuda:cuda.config"],
+    outs = ["lib64/libcurand.so" + cuda_sdk_version()],
     cmd  = '''
-        source $(location @tf//third_party/gpus/cuda:cuda.config) || exit -1;
+        source $(location @org_tensorflow//third_party/gpus/cuda:cuda.config) || exit -1;
         CUDA_TOOLKIT_PATH=$${CUDA_TOOLKIT_PATH:-/usr/local/cuda};
         FILE=libcurand.so%s;
         SRC=$$CUDA_TOOLKIT_PATH/lib64/$$FILE;
@@ -173,7 +173,7 @@ genrule(
         fi
 
         mkdir -p $(@D);
-        cp $$SRC $(@D)/$$FILE;''' % tf_get_cuda_version(),
+        cp $$SRC $(@D)/$$FILE;''' % cuda_sdk_version(),
 ) 
 
 # TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
@@ -198,8 +198,8 @@ genrule(
 
 cc_library(
     name = "curand",
-    srcs = ["lib64/libcurand.so" + tf_get_cuda_version()],
-    data = ["lib64/libcurand.so" + tf_get_cuda_version()],
+    srcs = ["lib64/libcurand.so" + cuda_sdk_version()],
+    data = ["lib64/libcurand.so" + cuda_sdk_version()],
     linkstatic = 1
 )
 
@@ -208,11 +208,11 @@ cc_library(
     srcs = [":caffe-extract", "lib/libcaffe.a", "lib/libproto.a"],
     hdrs = glob(["include/**"]) + ["include/caffe/proto/caffe.pb.h"],
     deps = if_cuda([
-        "@tf//third_party/gpus/cuda:cudnn", 
-        "@tf//third_party/gpus/cuda:cublas",
+        "@org_tensorflow//third_party/gpus/cuda:cudnn", 
+        "@org_tensorflow//third_party/gpus/cuda:cublas",
         ":curand",
     ]) + [
-        "@tf//google/protobuf:protobuf"
+        "@protobuf//:protobuf"
     ],
     includes = ["include/"],
     defines = if_cuda([], ["CPU_ONLY"]),
