@@ -1,7 +1,7 @@
 load("@//third_party:caffe.bzl", "if_cuda")
 load("@org_tensorflow//third_party/gpus/cuda:platform.bzl",
      "cuda_sdk_version",
-     "cudnn_sdk_version",
+     "cudnn_library_path",
     )
 
 package(default_visibility = ["//visibility:public"])
@@ -89,7 +89,7 @@ genrule(
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
         "@org_tensorflow//third_party/gpus/cuda:include/cudnn.h",
-        "@org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so." + cudnn_sdk_version()
+        "@org_tensorflow//third_party/gpus/cuda:" + cudnn_library_path()
     ]) + [
         ":protobuf-root", 
         "@protobuf//:protoc", 
@@ -116,11 +116,11 @@ genrule(
         # sensible.
         if_cuda(''' 
             cudnn_includes=$(location @org_tensorflow//third_party/gpus/cuda:include/cudnn.h);
-            cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:lib64/libcudnn.so.%s);
+            cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:%s);
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
                               -DUSE_CUDNN:bool=ON 
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
-                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_sdk_version(), 
+                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_library_path(), 
             '''extra_cmake_opts="-DCPU_ONLY:bool=ON";''') +
 
         # configure cmake.
