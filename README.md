@@ -58,11 +58,11 @@ To run tests related to the Caffe servable implementation, run:
 
 ## Examples
 
-This fork provides near identical equivalents of the Tensorflow `mnist_inference` service implementations, with the main difference being that they use Caffe, rather than Tensorflow.
+The `mnist_inference` example service implementations have been altered in this fork to run with the Caffe runtime when built with the `--define=backend=caffe` option; making it easy to see the required changes to serve with Caffe rather than Tensorflow. Typically less than 10 lines of code need altering.
 
-### MNIST
+### mnist
 
-#### 1. Download a pre-trained model:
+#### 1. Download the pre-trained caffe model:
 
     > bazel run //tensorflow_serving/servables/caffe/example:mnist_caffe_fetch -- \
         --version 1 /tmp/mnist_export_caffe
@@ -77,18 +77,27 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 
 #### 2.a Basic service
 
-    > bazel build -c opt //tensorflow_serving/example:mnist_inference_caffe
-    > ./bazel-bin/tensorflow_serving/example/mnist_inference_caffe --port=9000 /tmp/mnist_export_caffe/00000001/
+    > bazel build -c opt --define=backend=caffe //tensorflow_serving/example:mnist_inference
+    > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
 
-#### 2.a Advanced service
+#### 2.b Advanced service
 
-    > bazel build -c opt //tensorflow_serving/example:mnist_inference_2_caffe
-    > ./bazel-bin/tensorflow_serving/example/mnist_inference_2_caffe --port=9000 /tmp/mnist_export_caffe
+    > bazel build -c opt --define=backend=caffe //tensorflow_serving/example:mnist_inference_2
+    > ./bazel-bin/tensorflow_serving/example/mnist_inference_2 --port=9000 /tmp/mnist_export_caffe
 
 #### 3. Build and run the client
 
     > bazel build //tensorflow_serving/example:mnist_client
-    > bazel-bin/tensorflow_serving/example/mnist_client --num_tests=1000 --server=localhost:9000 --concurrency=10
+    > bazel-bin/tensorflow_serving/example/mnist_client \
+        --num_tests=1000 --server=localhost:9000 --concurrency=10
+    ....
+    Inference error rate: 1.2%
+    Request error rate: 0.0%
+    Avg. Throughput: 197.192047438 reqs/s
+    Request Latency (percentiles):
+      50th ....... 46ms
+      90th ....... 62ms
+      99th ....... 83ms
 
 
 ## FAQ
