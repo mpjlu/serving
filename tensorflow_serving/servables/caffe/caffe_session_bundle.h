@@ -19,7 +19,6 @@ limitations under the License.
 
 #include <memory>
 
-
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/stringpiece.h"
 #include "tensorflow/core/public/session.h"
@@ -35,7 +34,7 @@ const char kGraphDefFilename[] = "deploy.prototxt";
 // The closest thing we can get to a TF session bundle?
 struct CaffeSessionBundle {
   std::unique_ptr<tensorflow::Session> session;
-  caffe::NetParameter graph_def;
+  caffe::NetParameter meta_graph_def;
 };
 
 // Loads a manifest and initialized session using the output of an Exporter

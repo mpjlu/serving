@@ -46,7 +46,6 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/env.h"
-#include "tensorflow/core/platform/init_main.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/command_line_flags.h"
 #include "tensorflow_serving/batching/basic_batch_scheduler.h"
@@ -57,10 +56,17 @@ limitations under the License.
 #include "tensorflow_serving/core/servable_id.h"
 #include "tensorflow_serving/example/mnist_inference.grpc.pb.h"
 #include "tensorflow_serving/example/mnist_inference.pb.h"
-#include "tensorflow_serving/servables/tensorflow/simple_servers.h"
-#include "tensorflow_serving/session_bundle/manifest.pb.h"
-#include "tensorflow_serving/session_bundle/session_bundle.h"
 #include "tensorflow_serving/session_bundle/signature.h"
+
+#ifndef USE_CAFFE
+  #include "tensorflow/core/platform/init_main.h"
+  #include "tensorflow_serving/servables/tensorflow/simple_servers.h"
+  #include "tensorflow_serving/session_bundle/manifest.pb.h"
+  #include "tensorflow_serving/session_bundle/session_bundle.h"
+#else
+  #include "tensorflow_serving/servables/caffe/caffe_simple_servers.h"
+  #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
+#endif
 
 using grpc::InsecureServerCredentials;
 using grpc::Server;
@@ -76,6 +82,12 @@ using tensorflow::serving::MnistService;
 using tensorflow::string;
 using tensorflow::Tensor;
 using tensorflow::serving::ClassificationSignature;
+
+#ifdef USE_CAFFE
+  using SessionBundleType = tensorflow::serving::CaffeSessionBundle;
+#else
+  using SessionBundleType = tensorflow::serving::SessionBundle;
+#endif
 
 namespace {
 const int kImageSize = 28;
@@ -280,7 +292,7 @@ void MnistServiceImpl::DoClassifyInBatch(
   // whenever code changes.
   auto handle_request =
       tensorflow::serving::ServableRequest::Latest(servable_name_);
-  tensorflow::serving::ServableHandle<tensorflow::serving::SessionBundle>
+  tensorflow::serving::ServableHandle<SessionBundleType>
       bundle;
   const tensorflow::Status lookup_status =
       manager_->GetServableHandle(handle_request, &bundle);
@@ -293,8 +305,15 @@ void MnistServiceImpl::DoClassifyInBatch(
   // Get the default signature of the graph.  Expected to be a
   // classification signature.
   tensorflow::serving::ClassificationSignature signature;
+#ifndef USE_CAFFE
   const tensorflow::Status signature_status =
       GetClassificationSignature(bundle->meta_graph_def, &signature);
+#else
+  // TODO(rayg): implement GetClassificationSignature for Caffe
+  const tensorflow::Status signature_status;
+  signature.mutable_input()->set_tensor_name("data");
+  signature.mutable_scores()->set_tensor_name("prob");
+#endif
   if (!signature_status.ok()) {
     complete_with_error(StatusCode::INTERNAL,
                         signature_status.error_message());
@@ -403,14 +422,20 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "Usage: mnist_inference_2 --port=9000 /path/to/exports";
   }
   const string export_base_path(argv[1]);
-  tensorflow::port::InitMain(argv[0], &argc, &argv);
 
   // WARNING(break-tutorial-inline-code): The following code snippet is
   // in-lined in tutorials, please update tutorial documents accordingly
   // whenever code changes.
   std::unique_ptr<tensorflow::serving::Manager> manager;
+
+#ifndef USE_CAFFE
+  tensorflow::port::InitMain(argv[0], &argc, &argv);
   tensorflow::Status status = tensorflow::serving::simple_servers::
       CreateSingleTFModelManagerFromBasePath(export_base_path, &manager);
+#else
+  tensorflow::Status status = tensorflow::serving::simple_servers::
+      CreateSingleCaffeModelManagerFromBasePath(export_base_path, &manager);
+#endif
 
   TF_CHECK_OK(status) << "Error creating manager";
 

@@ -102,10 +102,10 @@ tensorflow::Status LoadSessionBundleFromPath(
   LOG(INFO) << "Attempting to load a SessionBundle from: " << export_dir;
   // load prototxt
   TF_RETURN_IF_ERROR(
-      GetGraphDefFromExport(export_dir, &(bundle->graph_def)));
+      GetGraphDefFromExport(export_dir, &(bundle->meta_graph_def)));
 
   // initialize network
-  const caffe::NetParameter& graph_def = bundle->graph_def;
+  const caffe::NetParameter& graph_def = bundle->meta_graph_def;
   std::unique_ptr<CaffeServingSession> caffe_session;
   TF_RETURN_IF_ERROR(
       CreateSessionFromGraphDef(options, graph_def, &caffe_session));

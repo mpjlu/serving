@@ -25,6 +25,11 @@ filegroup(
     ),
 )
 
+config_setting(
+    name = "use_caffe",
+    values = {"define": "backend=caffe"},
+)
+
 serving_proto_library(
     name = "mnist_inference_proto",
     srcs = ["mnist_inference.proto"],
@@ -56,39 +61,32 @@ cc_binary(
         "mnist_inference.cc",
     ],
     linkopts = ["-lm"],
-    deps = [
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:core_cpu",
-        "@org_tensorflow//tensorflow/core:framework",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:protos_all_cc",
-        "@org_tensorflow//tensorflow/core:tensorflow",
-        ":mnist_inference_proto",
-        "//tensorflow_serving/servables/tensorflow:session_bundle_config_proto",
-        "//tensorflow_serving/servables/tensorflow:session_bundle_factory",
-        "//tensorflow_serving/session_bundle",
-        "//tensorflow_serving/session_bundle:manifest_proto",
-        "//tensorflow_serving/session_bundle:signature",
-    ],
-)
-
-cc_binary(
-    name = "mnist_inference_caffe",
-    srcs = [
-        "mnist_inference_caffe.cc",
-    ],
-    linkopts = ["-lm"],
+    defines = select({
+        ":use_caffe": ["USE_CAFFE"],
+        "//conditions:default": []
+    }),
     deps = [
         "@grpc//:grpc++",
         "@org_tensorflow//tensorflow/core:lib",
         ":mnist_inference_proto",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle",
         "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/session_bundle:manifest_proto",
         "//tensorflow_serving/session_bundle:signature",
-    ],
+    ] + select({
+        ":use_caffe": [
+            "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
+            "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
+            "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+        ],
+        "//conditions:default": [
+            "@org_tensorflow//tensorflow/core:core_cpu",
+            "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core:protos_all_cc",
+            "@org_tensorflow//tensorflow/core:tensorflow",
+            "//tensorflow_serving/servables/tensorflow:session_bundle_config_proto",
+            "//tensorflow_serving/servables/tensorflow:session_bundle_factory",        
+        ]
+    }),
 )
 
 cc_binary(
@@ -97,12 +95,13 @@ cc_binary(
         "mnist_inference_2.cc",
     ],
     linkopts = ["-lm"],
+    defines = select({
+        ":use_caffe": ["USE_CAFFE"],
+        "//conditions:default": []
+    }),
     deps = [
         "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:protos_all_cc",
-        "@org_tensorflow//tensorflow/core:tensorflow",
         ":mnist_inference_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
@@ -110,11 +109,21 @@ cc_binary(
         "//tensorflow_serving/core:manager",
         "//tensorflow_serving/core:servable_handle",
         "//tensorflow_serving/core:servable_id",
-        "//tensorflow_serving/servables/tensorflow:simple_servers",
-        "//tensorflow_serving/session_bundle",
-        "//tensorflow_serving/session_bundle:manifest_proto",
         "//tensorflow_serving/session_bundle:signature",
-    ],
+    ] + select({
+        ":use_caffe": [
+            "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+            "//tensorflow_serving/servables/caffe:caffe_simple_servers",
+        ],
+        "//conditions:default": [
+            "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core:protos_all_cc",
+            "@org_tensorflow//tensorflow/core:tensorflow",
+            "//tensorflow_serving/session_bundle",
+            "//tensorflow_serving/session_bundle:manifest_proto",
+            "//tensorflow_serving/servables/tensorflow:simple_servers",
+        ]
+    }),
 )
 
 cc_binary(

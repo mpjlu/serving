@@ -64,6 +64,8 @@ cc_library(
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
+        "//tensorflow_serving/session_bundle:manifest_proto",
+        "//tensorflow_serving/session_bundle:signature",
         ":caffe_serving_session",
     ],
 )

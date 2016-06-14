@@ -37,22 +37,32 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/tensor_types.h"
-#include "tensorflow/core/framework/types.pb.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/strings/strcat.h"
-#include "tensorflow/core/platform/init_main.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/types.h"
-#include "tensorflow/core/public/session.h"
-#include "tensorflow/core/public/session_options.h"
+#include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/util/command_line_flags.h"
+
 #include "tensorflow_serving/example/mnist_inference.grpc.pb.h"
 #include "tensorflow_serving/example/mnist_inference.pb.h"
-#include "tensorflow_serving/servables/tensorflow/session_bundle_config.pb.h"
-#include "tensorflow_serving/servables/tensorflow/session_bundle_factory.h"
 #include "tensorflow_serving/session_bundle/manifest.pb.h"
 #include "tensorflow_serving/session_bundle/session_bundle.h"
 #include "tensorflow_serving/session_bundle/signature.h"
+
+#ifndef USE_CAFFE
+  #include "tensorflow/core/framework/types.pb.h"
+  #include "tensorflow/core/lib/strings/strcat.h"
+  #include "tensorflow/core/platform/init_main.h"
+  #include "tensorflow/core/public/session.h"
+  #include "tensorflow/core/public/session_options.h"
+  #include "tensorflow_serving/servables/tensorflow/session_bundle_config.pb.h"
+  #include "tensorflow_serving/servables/tensorflow/session_bundle_factory.h"
+#else
+  #include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"
+  #include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
+  #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
+#endif
 
 using grpc::InsecureServerCredentials;
 using grpc::Server;
@@ -65,9 +75,17 @@ using tensorflow::serving::MnistRequest;
 using tensorflow::serving::MnistResponse;
 using tensorflow::serving::MnistService;
 using tensorflow::serving::BatchingParameters;
-using tensorflow::serving::SessionBundle;
-using tensorflow::serving::SessionBundleConfig;
-using tensorflow::serving::SessionBundleFactory;
+
+#ifndef USE_CAFFE
+  using SessionBundleType = tensorflow::serving::SessionBundle;
+  using tensorflow::serving::SessionBundleConfig;
+  using tensorflow::serving::SessionBundleFactory;
+#else
+  using SessionBundleType = tensorflow::serving::CaffeSessionBundle;
+  using tensorflow::serving::CaffeSessionBundleConfig;
+  using tensorflow::serving::CaffeSessionBundleFactory;
+#endif
+
 using tensorflow::string;
 using tensorflow::Tensor;
 using tensorflow::TensorShape;
@@ -86,10 +104,16 @@ Status ToGRPCStatus(const tensorflow::Status& status) {
 
 class MnistServiceImpl final : public MnistService::Service {
  public:
-  explicit MnistServiceImpl(std::unique_ptr<SessionBundle> bundle)
+  explicit MnistServiceImpl(std::unique_ptr<SessionBundleType> bundle)
       : bundle_(std::move(bundle)) {
+#ifndef USE_CAFFE
     signature_status_ = tensorflow::serving::GetClassificationSignature(
         bundle_->meta_graph_def, &signature_);
+#else
+    // TODO(rayg) GetClassificationSignature impl.
+    signature_.mutable_input()->set_tensor_name("data");
+    signature_.mutable_scores()->set_tensor_name("prob");
+#endif
   }
 
   Status Classify(ServerContext* context, const MnistRequest* request,
@@ -149,12 +173,12 @@ class MnistServiceImpl final : public MnistService::Service {
   }
 
  private:
-  std::unique_ptr<SessionBundle> bundle_;
+  std::unique_ptr<SessionBundleType> bundle_;
   tensorflow::Status signature_status_;
   ClassificationSignature signature_;
 };
 
-void RunServer(int port, std::unique_ptr<SessionBundle> bundle) {
+void RunServer(int port, std::unique_ptr<SessionBundleType> bundle) {
   // "0.0.0.0" is the way to listen on localhost in gRPC.
   const string server_address = "0.0.0.0:" + std::to_string(port);
   MnistServiceImpl service(std::move(bundle));
@@ -169,6 +193,11 @@ void RunServer(int port, std::unique_ptr<SessionBundle> bundle) {
 
 }  // namespace
 
+void configure_batching(BatchingParameters* batching_parameters) {
+  batching_parameters->mutable_thread_pool_name()->set_value(
+      "mnist_service_batch_threads");
+}
+
 int main(int argc, char** argv) {
   tensorflow::int32 port = 0;
   const bool parse_result =
@@ -182,12 +211,13 @@ int main(int argc, char** argv) {
   }
   const string bundle_path(argv[1]);
 
+#ifndef USE_CAFFE
+  LOG(INFO) << "Backend set to Tensorflow";
   tensorflow::port::InitMain(argv[0], &argc, &argv);
 
   // WARNING(break-tutorial-inline-code): The following code snippet is
   // in-lined in tutorials, please update tutorial documents accordingly
   // whenever code changes.
-
   SessionBundleConfig session_bundle_config;
 
   //////
@@ -195,21 +225,26 @@ int main(int argc, char** argv) {
   //
   // (If you prefer to disable batching, simply omit the following lines of code
   // such that session_bundle_config.batching_parameters remains unset.)
-  BatchingParameters* batching_parameters =
-      session_bundle_config.mutable_batching_parameters();
-  batching_parameters->mutable_thread_pool_name()->set_value(
-      "mnist_service_batch_threads");
+  configure_batching(session_bundle_config.mutable_batching_parameters());
   //////
 
   std::unique_ptr<SessionBundleFactory> bundle_factory;
   TF_QCHECK_OK(
       SessionBundleFactory::Create(session_bundle_config, &bundle_factory));
-  std::unique_ptr<SessionBundle> bundle(new SessionBundle);
-  TF_QCHECK_OK(bundle_factory->CreateSessionBundle(bundle_path, &bundle));
-
   // END WARNING(break-tutorial-inline-code)
 
-  RunServer(port, std::move(bundle));
+#else
+  LOG(INFO) << "Backend set to Caffe";
+  CaffeSessionBundleConfig session_bundle_config;
+  configure_batching(session_bundle_config.mutable_batching_parameters());
+  std::unique_ptr<CaffeSessionBundleFactory> bundle_factory;
+  TF_QCHECK_OK(
+      CaffeSessionBundleFactory::Create(session_bundle_config, &bundle_factory));
+#endif
 
+  std::unique_ptr<SessionBundleType> bundle;
+  TF_QCHECK_OK(bundle_factory->CreateSessionBundle(bundle_path, &bundle));
+
+  RunServer(port, std::move(bundle));
   return 0;
 }
