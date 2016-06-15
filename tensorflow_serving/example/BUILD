@@ -27,7 +27,7 @@ filegroup(
 
 config_setting(
     name = "use_caffe",
-    values = {"define": "backend=caffe"},
+    values = {"define": "runtime=caffe"},
 )
 
 serving_proto_library(

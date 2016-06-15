@@ -58,7 +58,7 @@ To run tests related to the Caffe servable implementation, run:
 
 ## Examples
 
-The `mnist_inference` example service implementations have been altered in this fork to run with the Caffe runtime when built with the `--define=backend=caffe` option; making it easy to see the required changes to serve with Caffe rather than Tensorflow. Typically less than 10 lines of code need altering.
+The `mnist_inference` example service implementations have been altered in this fork to run with the Caffe runtime when built with the `--define=runtime=caffe` option; making it easy to see the required changes to serve with Caffe rather than Tensorflow. Typically less than 10 lines of code need altering.
 
 ### MNIST handwriting recognition
 
@@ -77,12 +77,12 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 
 ##### 2.a Basic service
 
-    > bazel build -c opt --define=backend=caffe //tensorflow_serving/example:mnist_inference
+    > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
     > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
 
 ##### 2.b Advanced service
 
-    > bazel build -c opt --define=backend=caffe //tensorflow_serving/example:mnist_inference_2
+    > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference_2
     > ./bazel-bin/tensorflow_serving/example/mnist_inference_2 --port=9000 /tmp/mnist_export_caffe
 
 #### 3. Build and run the client
