@@ -71,6 +71,7 @@ Status GetGraphDefFromExport(const StringPiece export_dir,
       strings::StrCat("Network upgrade failed from while loading from file: ",
                       graph_def_path));
   }
+  graph_def->mutable_state()->set_phase(caffe::TEST);
   return Status::OK();
 }
 
