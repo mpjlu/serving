@@ -23,3 +23,8 @@ def tf_serving_workspace(path_prefix = ""):
     init_submodules = True,
     build_file = path_prefix + "caffe.BUILD",
   )
+
+  native.local_repository(
+    name = "caffe_tools",
+    path = "third_party/caffe"
+  )
