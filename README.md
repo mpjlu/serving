@@ -104,7 +104,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 
 ### How do I use my own Fork of Caffe?
 
-If you intend to use a fork of Caffe which contains (for example) custom layers, you can alter the `WORKSPACE` file to point to the file/git location of this fork.
+If you intend to use a fork of Caffe which contains (for example) custom layers, you can alter `tensorflow_serving/workspace.bzl` to point to the file/git location of your fork.
 
 __Note:__ To ensure any custom layer is picked up by the build, you currently will need to alter the `caffe.BUILD` to include the name of that layer in the variable `CAFFE_WELL_KNOWN_LAYERS`.
 
