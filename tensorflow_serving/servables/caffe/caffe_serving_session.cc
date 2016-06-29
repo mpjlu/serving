@@ -77,10 +77,11 @@ void GetGPUs(std::vector<int>* gpus) {
   int count = 0;
 #ifndef CPU_ONLY
   CUDA_CHECK(cudaGetDeviceCount(&count));
-#endif
   for (int i = 0; i < count; ++i) {
-    gpus->push_back(i);
+    if (caffe::Caffe::CheckDevice(i))
+      gpus->push_back(i);
   }
+#endif
 }
 
 bool TryAssignGPU() 
