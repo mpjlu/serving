@@ -87,7 +87,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 
 #### 3. Build and run the client
 
-    > bazel build //tensorflow_serving/example:mnist_client
+    > bazel build -c opt //tensorflow_serving/example:mnist_client
     > bazel-bin/tensorflow_serving/example/mnist_client \
         --num_tests=1000 --server=localhost:9000 --concurrency=10
     ....
