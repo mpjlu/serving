@@ -71,6 +71,13 @@ cc_library(
 )
 
 cc_library(
+    name = "simple_thread_sink",
+    srcs = ["simple_thread_sink.cc"],
+    hdrs = ["simple_thread_sink.h"],
+    linkstatic = 1,
+)
+
+cc_library(
     name = "caffe_serving_session",
     srcs = ["caffe_serving_session.cc"],
     hdrs = ["caffe_serving_session.h"],
