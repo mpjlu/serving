@@ -26,5 +26,5 @@ def tf_serving_workspace(path_prefix = ""):
 
   native.local_repository(
     name = "caffe_tools",
-    path = "third_party/caffe"
+    path = path_prefix + "third_party/caffe"
   )
