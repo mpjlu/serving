@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "caffe/common.hpp"
 #include "caffe/net.hpp"
 #include "caffe/blob.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -102,11 +103,23 @@ CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph,
                                          const CaffeSessionOptions& opts) 
     : net_{ nullptr }
     , batch_size_{ 0 }
+    , ts_()
 {
-  LOG(INFO) << "Caffe execution mode: " << (TryAssignGPU() ? "GPU" : "CPU");
-  net_.reset(new caffe::Net<float>(graph));
+  bool is_gpu = ts_.run(
+    [](std::unique_ptr<caffe::Net<float>>* net, 
+       const caffe::NetParameter* graph) 
+    {
+      bool is_gpu = TryAssignGPU();
+      net->reset(new caffe::Net<float>(*graph));
+      return is_gpu;
+    }, 
+    &net_, 
+    &graph);
+  
+  LOG(INFO) << "Caffe execution mode: " << 
+    (is_gpu ? "GPU" : "CPU");
   {
-    std::vector<string> blobs = net_->blob_names();
+    const std::vector<string>& blobs = net_->blob_names();
     for (int idx : net_->input_blob_indices()) {
       input_blob_map_.emplace(blobs[idx], idx);
     }
@@ -160,8 +173,10 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     TF_RETURN_IF_ERROR(Reshape(batch_size));
   }
 
-  // copy input to network blobs, validating tensor dimensions, etc.
-  auto net_blobs = net_->blobs();
+  auto net_blobs = ts_.run(
+    [](caffe::Net<float>* net) { return net->blobs(); }, 
+    net_.get());
+
   for (const std::pair<string, Tensor>& in: inputs) {
     auto it = input_blob_map_.find(in.first);
     if (it == input_blob_map_.end()) {
@@ -179,9 +194,10 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
       std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
     }
   }
-  
-  // run the inference
-  net_->Forward();
+
+  ts_.run(
+    [](caffe::Net<float>* net) { net->Forward(); }, 
+    net_.get());
 
   // copy to output vectors
   outputs->clear();
@@ -199,6 +215,7 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
       outputs->push_back(t);
     }
   }
+
   return Status::OK();
 }
 
@@ -211,9 +228,17 @@ Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string traine
       strings::StrCat("Caffe network failed to load pretrained layers from file: ",
                       trained_filename));  
   }
-  // TODO(rayg): this can abort
-  net_->CopyTrainedLayersFrom(param);
-  return Status::OK();
+
+  return ts_.run(
+    [](caffe::Net<float>* net, 
+       const caffe::NetParameter& param) 
+    {
+      // TODO(rayg): this can abort
+      net->CopyTrainedLayersFrom(param);
+      return Status::OK();
+    },
+    net_.get(),
+    param);
 }
 
 Status CaffeServingSession::Reshape(unsigned int batch_size)
@@ -221,17 +246,24 @@ Status CaffeServingSession::Reshape(unsigned int batch_size)
   if (batch_size <= 0) { return errors::InvalidArgument("batch_size must be at least 1"); }
   if (batch_size_ == batch_size) { return Status::OK(); }
 
-  for (int idx : net_->input_blob_indices()) {
-    auto& blob = *(net_->blobs().at(idx));
-    std::vector<int> new_shape{ blob.shape() };
-
-    if (new_shape.size() > 1 && new_shape[0] > 0) {
-      new_shape[0] = batch_size;
-      blob.Reshape(new_shape);
-    }
-  }
-  net_->Reshape();
-  batch_size_ = batch_size;
+  batch_size_ = ts_.run(
+    [](caffe::Net<float>* net,
+       unsigned int batch_size) 
+    {
+      for (int idx : net->input_blob_indices()) {
+        auto& blob = *(net->blobs().at(idx));
+        std::vector<int> new_shape{ blob.shape() };
+    
+        if (new_shape.size() > 1 && new_shape[0] > 0) {
+          new_shape[0] = batch_size;
+          blob.Reshape(new_shape);
+        }
+      }
+      net->Reshape();
+      return batch_size;
+    },
+    net_.get(),
+    batch_size);
 
   LOG(INFO) << "Reshaped Network (batch_size=" << batch_size_ << ").";
   return Status::OK();

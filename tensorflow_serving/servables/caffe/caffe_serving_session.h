@@ -26,6 +26,7 @@ limitations under the License.
 
 #include "tensorflow/core/lib/gtl/array_slice.h"
 #include "tensorflow/core/lib/core/status.h"
+#include "tensorflow_serving/servables/caffe/simple_thread_sink.h"
 #include "tensorflow_serving/servables/tensorflow/serving_session.h"
 
 // forward decl caffe::Net
@@ -35,6 +36,8 @@ namespace caffe {
 
 namespace tensorflow {
 namespace serving {
+
+
 
 // No session options for Caffe
 struct CaffeSessionOptions {};
@@ -60,6 +63,7 @@ class CaffeServingSession : public ServingSession {
 
   std::unordered_map<string, unsigned int> input_blob_map_;
   std::unordered_map<string, unsigned int> output_blob_map_;
+  SimpleThreadSink ts_;
 
   TF_DISALLOW_COPY_AND_ASSIGN(CaffeServingSession);  
 };

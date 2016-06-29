@@ -85,6 +85,7 @@ cc_library(
         "//external:caffe",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
+        ":simple_thread_sink",
         "//tensorflow_serving/servables/tensorflow:serving_session",
     ],
 )
