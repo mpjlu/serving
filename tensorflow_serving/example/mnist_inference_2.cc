@@ -433,6 +433,7 @@ int main(int argc, char** argv) {
   tensorflow::Status status = tensorflow::serving::simple_servers::
       CreateSingleTFModelManagerFromBasePath(export_base_path, &manager);
 #else
+  tensorflow::serving::CaffeGlobalInit(&argc, &argv);
   tensorflow::Status status = tensorflow::serving::simple_servers::
       CreateSingleCaffeModelManagerFromBasePath(export_base_path, &manager);
 #endif

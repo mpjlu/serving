@@ -31,6 +31,10 @@ namespace serving {
 
 const char kGraphDefFilename[] = "deploy.prototxt";
 
+// A global initialization function that you should call in your main function.
+// Currently it just invokes caffe::GlobalInit(..)
+void CaffeGlobalInit(int* pargc, char*** pargv);
+
 // The closest thing we can get to a TF session bundle?
 struct CaffeSessionBundle {
   std::unique_ptr<tensorflow::Session> session;

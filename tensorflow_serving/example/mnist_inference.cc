@@ -235,6 +235,8 @@ int main(int argc, char** argv) {
 
 #else
   LOG(INFO) << "Backend set to Caffe";
+  tensorflow::serving::CaffeGlobalInit(&argc, &argv);
+
   CaffeSessionBundleConfig session_bundle_config;
   configure_batching(session_bundle_config.mutable_batching_parameters());
   std::unique_ptr<CaffeSessionBundleFactory> bundle_factory;

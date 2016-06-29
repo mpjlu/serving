@@ -121,5 +121,9 @@ tensorflow::Status LoadSessionBundleFromPath(
   return Status::OK();
 }
 
+void CaffeGlobalInit(int* pargc, char*** pargv) {
+  caffe::GlobalInit(pargc, pargv);
+}
+
 }  // namespace serving
 }  // namespace tensorflow
