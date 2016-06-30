@@ -23,14 +23,6 @@ CAFFE_WELL_KNOWN_LAYERS = [
     "contrastive_loss_layer.cpp.o",
     "conv_layer.cpp.o",
     "crop_layer.cpp.o",
-    "cudnn_conv_layer.cpp.o",
-    "cudnn_lcn_layer.cpp.o",
-    "cudnn_lrn_layer.cpp.o",
-    "cudnn_pooling_layer.cpp.o",
-    "cudnn_relu_layer.cpp.o",
-    "cudnn_sigmoid_layer.cpp.o",
-    "cudnn_softmax_layer.cpp.o",
-    "cudnn_tanh_layer.cpp.o",
     "data_layer.cpp.o",
     "deconv_layer.cpp.o",
     "dropout_layer.cpp.o",
@@ -75,7 +67,16 @@ CAFFE_WELL_KNOWN_LAYERS = [
     "spp_layer.cpp.o",
     "tanh_layer.cpp.o",
     "layer_factory.cpp.o",
-]
+] + if_cuda([
+    "cudnn_conv_layer.cpp.o",
+    "cudnn_lcn_layer.cpp.o",
+    "cudnn_lrn_layer.cpp.o",
+    "cudnn_pooling_layer.cpp.o",
+    "cudnn_relu_layer.cpp.o",
+    "cudnn_sigmoid_layer.cpp.o",
+    "cudnn_softmax_layer.cpp.o",
+    "cudnn_tanh_layer.cpp.o",
+])
 
 genquery(
     name = "protobuf-root",
@@ -215,7 +216,7 @@ cc_library(
         "@protobuf//:protobuf"
     ],
     includes = ["include/"],
-    defines = if_cuda([], ["CPU_ONLY"]),
+    defines = if_cuda(["USE_CUDNN"], ["CPU_ONLY"]),
     linkopts = [
         "-L/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
         "-Wl,-rpath,/usr/local/lib:/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
