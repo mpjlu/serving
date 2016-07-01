@@ -83,6 +83,7 @@ cc_library(
     hdrs = ["caffe_serving_session.h"],
     deps = [
         "//external:caffe",
+        "@caffe_tools//:openblas_prelude",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
         ":simple_thread_sink",

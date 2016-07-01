@@ -18,9 +18,13 @@ limitations under the License.
 #include "caffe/blob.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
+// note: this header resides in third_party/caffe
+#include "openblas_prelude.h"
 
+// avoid fp-16 redefinitions when using 
+// a recent version of cuda
 #if CUDA_VERSION >= 7050
-#define EIGEN_HAS_CUDA_FP16
+#  define EIGEN_HAS_CUDA_FP16
 #endif
 
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
@@ -74,8 +78,8 @@ unsigned int BatchSizeOf(const caffe::Net<float>& net) {
 
 // Parse GPU ids or use all available devices
 void GetGPUs(std::vector<int>* gpus) {
-  int count = 0;
 #ifndef CPU_ONLY
+  int count = 0;
   CUDA_CHECK(cudaGetDeviceCount(&count));
   for (int i = 0; i < count; ++i) {
     if (caffe::Caffe::CheckDevice(i))
@@ -95,6 +99,12 @@ bool TryAssignGPU()
     return true;
   } 
   else {
+    // tensorflow serving is a multi-threaded application;
+    // avoid using multi-threaded OpenBLAS for now since this
+    // is quite likely to cause problems when executing
+    // caffe::forward(..) within a critical section 
+    // (and could lead to deadlock).
+    openblas_set_num_threads(1);
     caffe::Caffe::set_mode(caffe::Caffe::CPU);
     return false;
   }
