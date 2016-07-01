@@ -32,17 +32,16 @@ will need the following:
 - `glog`
 - `lmdb`
 
-__Note:__ installing protobuf is not required; the build will adopt protobuf from the `tensorflow/google/protobuf` submodule.
+__Note:__ installing protobuf is not required; the build will adopt the protobuf package from Tensorflow.
 
 To validate the Caffe build, run the following bazel command. This will retrieve Caffe
 from Github and build Caffe in cpu mode:
 
-    > bazel build //external:caffe
+    > bazel build -c opt //external:caffe
 
 ### GPU Support (optional, linux only)
 
-The Caffe build adopts the CUDA configuration from the Tensorflow build, and as such
-will use the version (and location) of cudnn, and the standard cuda libraries you specified when you configured Tensorflow. You can validate this configuration by building Caffe with CUDA:
+The Caffe build adopts the CUDA configuration from Tensorflow, and as such will use the version (and location) of cudnn, and the standard cuda libraries you specified when you configured Tensorflow. You can validate this configuration by building Caffe with CUDA:
 
     > bazel build -c opt --config=cuda //external:caffe
 
@@ -73,12 +72,27 @@ The contents of any pretrained model must include `deploy.prototxt` `weights.caf
 
 #### 2. Build and run an MNIST service:
 
-Select one of the two mnist services to build and run. Ideally, you should be familiar with the TFS mnist tutorials ([Basic](tensorflow_serving/g3doc/serving_basic.md), [Advanced](tensorflow_serving/g3doc/serving_advanced.md)) before serving Caffe models with TFS. Equivalent instructions for serving the mnist examples with caffe follow:
+Select one of the two mnist services to build and run. Ideally, you should be familiar with the TFS mnist tutorials ([Basic](tensorflow_serving/g3doc/serving_basic.md), [Advanced](tensorflow_serving/g3doc/serving_advanced.md)) before serving Caffe models with TFS. Equivalent instructions for serving the mnist examples with caffe follow; note that the only change required is `--define=runtime=caffe` when building.
 
 ##### 2.a Basic service
 
     > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
     > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
+
+    *sample output...*
+
+    I Backend set to Caffe
+    I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
+    I Caffe execution mode: CPU
+    I Loaded Network:
+        name: LeNet
+        inputs: 1
+        outputs: 1
+        initial batch-size: 1
+    I Running restore op for CaffeSessionBundle
+    I Done loading SessionBundle
+    I Wrapping SessionBundle session to perform batch processing
+    I Running...
 
 ##### 2.b Advanced service
 
@@ -90,7 +104,9 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
     > bazel build -c opt //tensorflow_serving/example:mnist_client
     > bazel-bin/tensorflow_serving/example/mnist_client \
         --num_tests=1000 --server=localhost:9000 --concurrency=10
-    ....
+    
+    *sample output...*
+
     Inference error rate: 1.2%
     Request error rate: 0.0%
     Avg. Throughput: 197.192047438 reqs/s
@@ -105,9 +121,6 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 ### How do I use my own Fork of Caffe?
 
 If you intend to use a fork of Caffe which contains (for example) custom layers, you can alter `tensorflow_serving/workspace.bzl` to point to the file/git location of your fork.
-
-__Note:__ To ensure any custom layer is picked up by the build, you currently will need to alter the `caffe.BUILD` to include the name of that layer in the variable `CAFFE_WELL_KNOWN_LAYERS`.
-
 
 ## Misc. Development notes
 

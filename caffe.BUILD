@@ -6,6 +6,7 @@ load("@org_tensorflow//third_party/gpus/cuda:platform.bzl",
 
 package(default_visibility = ["//visibility:public"])
 
+# gets the filepath to protobuf
 genquery(
     name = "protobuf-root",
     expression = "@protobuf//:protobuf_lite",
