@@ -26,11 +26,11 @@ Next, you will need to install the Caffe prerequisites on your system. For a com
 will need the following:
 
 - `CMake >= 2.8.12`
-- `Boost >= 1.55`
+- `Boost { system thread filesystem } >= 1.55`
 - `OpenBLAS`
 - `gflags`
 - `glog`
-- `lmdb`
+- `HDF5`
 
 __Note:__ installing protobuf is not required; the build will adopt the protobuf package from Tensorflow.
 
@@ -79,7 +79,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
     > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
     > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
 
-    *sample output...*
+###### sample output...
 
     I Backend set to Caffe
     I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
@@ -105,7 +105,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
     > bazel-bin/tensorflow_serving/example/mnist_client \
         --num_tests=1000 --server=localhost:9000 --concurrency=10
     
-    *sample output...*
+###### sample output...
 
     Inference error rate: 1.2%
     Request error rate: 0.0%
