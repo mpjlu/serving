@@ -17,6 +17,11 @@ table.
 
 ## Setup, Build & test
 
+First, clone the repository and its submodules: 
+
+    > git clone --recurse-submodules https://github.com/rayglover-ibm/serving-caffe
+    > cd serving
+
 Caffe has been integrated in to TFS build, and as such you should follow the
 [TFS installation guide](https://github.com/tensorflow/serving/blob/master/tensorflow_serving/g3doc/setup.md)
 first. At a minimum you need to install bazel and configure Tensorflow
@@ -78,21 +83,19 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 
     > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
     > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
-
-###### sample output...
-
-    I Backend set to Caffe
-    I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
-    I Caffe execution mode: CPU
-    I Loaded Network:
-        name: LeNet
-        inputs: 1
-        outputs: 1
-        initial batch-size: 1
-    I Running restore op for CaffeSessionBundle
-    I Done loading SessionBundle
-    I Wrapping SessionBundle session to perform batch processing
-    I Running...
+    
+        I Backend set to Caffe
+        I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
+        I Caffe execution mode: CPU
+        I Loaded Network:
+            name: LeNet
+            inputs: 1
+            outputs: 1
+            initial batch-size: 1
+        I Running restore op for CaffeSessionBundle
+        I Done loading SessionBundle
+        I Wrapping SessionBundle session to perform batch processing
+        I Running...
 
 ##### 2.b Advanced service
 
@@ -105,15 +108,13 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
     > bazel-bin/tensorflow_serving/example/mnist_client \
         --num_tests=1000 --server=localhost:9000 --concurrency=10
     
-###### sample output...
-
-    Inference error rate: 1.2%
-    Request error rate: 0.0%
-    Avg. Throughput: 197.192047438 reqs/s
-    Request Latency (percentiles):
-      50th ....... 46ms
-      90th ....... 62ms
-      99th ....... 83ms
+        Inference error rate: 1.2%
+        Request error rate: 0.0%
+        Avg. Throughput: 197.192047438 reqs/s
+        Request Latency (percentiles):
+          50th ....... 46ms
+          90th ....... 62ms
+          99th ....... 83ms
 
 
 ## FAQ
