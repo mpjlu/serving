@@ -38,7 +38,7 @@ SimpleThreadSink::~SimpleThreadSink()
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
     stop_ = true;
+    condition_.notify_all();
   }
-  condition_.notify_all();
   worker_.join();
 }
