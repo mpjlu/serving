@@ -159,13 +159,11 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     return errors::InvalidArgument("target_node_names is not supported by ",
                                    "the Caffe backend");
   }
-
   // check inputs are present, assuming there are no duplicates
   if (inputs.size() == 0 || inputs.size() < input_blob_map_.size()) {
-    return errors::InvalidArgument("Expected ", input_blob_map_.size(), 
+    return errors::InvalidArgument("Expected ", input_blob_map_.size(),
                                    " inputs, but got ", inputs.size(), ".");
   }
-
   // determine the batch size from the first input only
   unsigned int batch_size = 0;
   {
@@ -176,7 +174,7 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     }
     batch_size = in.dim_size(0);
     if (batch_size < 1) {
-      return errors::InvalidArgument("Invalid batch size of ", batch_size); 
+      return errors::InvalidArgument("Invalid batch size of ", batch_size);
     }
   }
 
@@ -184,50 +182,45 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     TF_RETURN_IF_ERROR(Reshape(batch_size));
   }
 
-  auto net_blobs = ts_.run(
-    [](caffe::Net<float>* net) { return net->blobs(); }, 
-    net_.get());
-
-  for (const std::pair<string, Tensor>& in: inputs) {
-    auto it = input_blob_map_.find(in.first);
-    if (it == input_blob_map_.end()) {
-      return errors::InvalidArgument("Input Tensor ", in.first,
-        " does not exist in the network.");
-    }
-    else {
-      if (in.second.dim_size(0) != batch_size) {
-        return errors::InvalidArgument("Input Tensor ", in.first,
-        " has an incorrect batch size.");
+  return ts_.run(
+    [&](caffe::Net<float>* net) {
+      // copy inputs to blobs
+      auto net_blobs = net->blobs();
+      for (const std::pair<string, Tensor>& in: inputs) {
+        auto it = input_blob_map_.find(in.first);
+        if (it == input_blob_map_.end()) {
+          return errors::InvalidArgument("Input Tensor ", in.first,
+            " does not exist in the network.");
+        }
+        else if (in.second.dim_size(0) != batch_size) {
+          return errors::InvalidArgument("Input Tensor ", in.first,
+            " has an incorrect batch size.");
+        }
+        // TODO(rayg): validate all other dimensions before copy
+        const auto view = in.second.flat<float>();
+        unsigned idx = it->second;
+        std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
       }
-      // TODO(rayg): validate all other dimensions before copy
-      const auto view = in.second.flat<float>();
-      unsigned idx = it->second;
-      std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
-    }
-  }
-
-  ts_.run(
-    [](caffe::Net<float>* net) { net->Forward(); }, 
+      // execute
+      net->Forward();
+      // copy to output tensors
+      outputs->clear();
+      for (const string& out: output_tensor_names) {
+        auto it = output_blob_map_.find(out);
+        if (it == output_blob_map_.end()) {
+          return errors::InvalidArgument("Specified network output '", out,
+                                         "' does not exist.");
+        }
+        const caffe::Blob<float>& blob = *net_blobs[it->second];
+        // 2-D output
+        Tensor t = AsTensor<float>(
+          { blob.cpu_data(), batch_size * (unsigned long)blob.channels() },
+          { batch_size, blob.channels() });
+        outputs->push_back(t);
+      }
+      return Status::OK();
+    },
     net_.get());
-
-  // copy to output vectors
-  outputs->clear();
-  for (const string& out: output_tensor_names) {
-    auto it = output_blob_map_.find(out);
-    if (it == output_blob_map_.end()) {
-      return errors::InvalidArgument("Specified network output '", out, 
-                                     "' does not exist.");
-    }
-    caffe::Blob<float>& blob = *net_blobs[it->second];
-    // 2-D output
-    {
-      TensorShape shape{ batch_size, blob.channels() };
-      Tensor t = AsTensor<float>({ blob.cpu_data(), batch_size * (unsigned long)blob.channels() }, shape);
-      outputs->push_back(t);
-    }
-  }
-
-  return Status::OK();
 }
 
 Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string trained_filename)
