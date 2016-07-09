@@ -48,7 +48,7 @@ auto SimpleThreadSink::run(F&& f, Args&&... args)
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
     tasks_.emplace([&task](){ (task)(); });
+    condition_.notify_one();
   }
-  condition_.notify_one();
   return res.get();
 }
