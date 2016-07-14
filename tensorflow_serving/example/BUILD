@@ -126,31 +126,6 @@ cc_binary(
     }),
 )
 
-cc_binary(
-    name = "mnist_inference_2_caffe",
-    srcs = [
-        "mnist_inference_2_caffe.cc",
-    ],
-    linkopts = ["-lm"],
-    deps = [
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:lib",
-        ":mnist_inference_proto",
-        "//tensorflow_serving/batching:basic_batch_scheduler",
-        "//tensorflow_serving/batching:batch_scheduler",
-        "//tensorflow_serving/batching:batch_scheduler_retrier",
-        "//tensorflow_serving/core:manager",
-        "//tensorflow_serving/core:servable_handle",
-        "//tensorflow_serving/core:servable_id",
-        "//tensorflow_serving/servables/caffe:caffe_simple_servers",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle",
-        "//tensorflow_serving/session_bundle:manifest_proto",
-        "//tensorflow_serving/session_bundle:signature",
-    ],
-)
-
 py_binary(
     name = "mnist_client",
     srcs = [
