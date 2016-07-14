@@ -21,41 +21,43 @@ genrule(
         "@org_tensorflow//third_party/gpus/cuda:include/cudnn.h",
         "@org_tensorflow//third_party/gpus/cuda:" + cudnn_library_path()
     ]) + [
-        ":protobuf-root", 
-        "@protobuf//:protoc", 
+        ":protobuf-root",
+        "@protobuf//:protoc",
         "@protobuf//:protobuf_lite"
     ],
     outs = [
-        "lib/libcaffe.a", 
-        "lib/libproto.a", 
-        "include/caffe/proto/caffe.pb.h"
+        # caffe
+        "lib/libcaffe.a",
+        "lib/libproto.a",
+        "include/caffe/proto/caffe.pb.h",
+        # openblas
+        "lib/libopenblas.so.0",
+        "include/cblas.h",
+        "include/openblas_config.h",
     ],
-    cmd = 
-        # build dir for cmake.
-        # Adopt protobuf from bazel.
+    cmd =
         '''
         srcdir=$$(pwd);
-        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX); 
+        workdir=$$(mktemp -d -t tmp.XXXXXXXXXX);
+        outdir=$$srcdir/$(@D);
 
         protobuf_incl=$$(grep -oP "^/\\\S*(?=/)" $(location :protobuf-root))/src;
         protoc=$$srcdir/$(location @protobuf//:protoc);
-        protolib=$$srcdir/$$(echo "$(locations @protobuf//:protobuf_lite)" | grep -o "\\\S*/libprotobuf_lite.a"); ''' + 
+        protolib=$$srcdir/$$(echo "$(locations @protobuf//:protobuf_lite)" | grep -o "\\\S*/libprotobuf_lite.a"); ''' +
 
         # extra cmake options during cuda configuration,
         # adopting the tensorflow cuda configuration where
         # sensible.
-        if_cuda(''' 
+        if_cuda('''
             cudnn_includes=$(location @org_tensorflow//third_party/gpus/cuda:include/cudnn.h);
             cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:%s);
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
-                              -DUSE_CUDNN:bool=ON 
+                              -DUSE_CUDNN:bool=ON
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
-                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_library_path(), 
+                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_library_path(),
             '''extra_cmake_opts="-DCPU_ONLY:bool=ON";''') +
 
         # configure cmake.
-        # openblas must be installed for this to 
-        # succeed.
         '''
         pushd $$workdir;
         cmake $$srcdir/external/caffe_git         \
@@ -73,18 +75,29 @@ genrule(
             -DPROTOBUF_LIBRARY=$$protolib         \
             $${extra_cmake_opts}; ''' +
 
-        # build libcaffe.a -- note we avoid building the 
+        # build libcaffe.a -- note we avoid building the
         # caffe tools because 1) we don't need them anyway
-        # and 2) they will fail to link because only 
+        # and 2) they will fail to link because only
         # protobuf_lite.a (and not libprotobuf.so) is
         # specified in PROTOBUF_LIBRARY.
         '''
         cmake --build . --target caffe -- -j 4;
-        cp -r ./lib $$srcdir/$(@D)
-        cp -r ./include $$srcdir/$(@D)
-        
+        cp -r ./lib $$outdir
+        cp -r ./include $$outdir ''' +
+
+        # openblas (note the full soname is libopenblas.so.0)
+        '''
+        openblas_incl=$$(grep -oP 'OpenBLAS_INCLUDE_DIR:PATH=\K(.*)' CMakeCache.txt)
+        openblas_lib=$$(grep -oP 'OpenBLAS_LIB:FILEPATH=\K(.*)' CMakeCache.txt)
+
+        cp $$openblas_lib $$outdir/lib/libopenblas.so.0
+        cp $$openblas_incl/cblas.h $$outdir/include
+        touch $$outdir/include/openblas_config.h ''' +
+
+        # clean up
+        '''
         popd;
-        rm -rf $$workdir;''',
+        rm -rf $$workdir; ''',
 )
 
 genrule(
@@ -104,9 +117,9 @@ genrule(
 
         mkdir -p $(@D);
         cp $$SRC $(@D)/$$FILE;''' % cuda_sdk_version(),
-) 
+)
 
-# TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?). 
+# TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?).
 #   This genrule unpacks the caffe.a and merges the layers as a .o (ld -r).
 #   (A terrible hack).
 genrule(
@@ -133,15 +146,24 @@ cc_library(
 )
 
 cc_library(
+    name = "openblas",
+    srcs = ["lib/libopenblas.so.0"],
+    data = ["lib/libopenblas.so.0"],
+    hdrs = ["include/cblas.h", "include/openblas_config.h"],
+    linkstatic = 1
+)
+
+cc_library(
     name = "caffe",
     srcs = [":caffe-extract", "lib/libcaffe.a", "lib/libproto.a"],
     hdrs = glob(["include/**"]) + ["include/caffe/proto/caffe.pb.h"],
     deps = if_cuda([
-        "@org_tensorflow//third_party/gpus/cuda:cudnn", 
+        "@org_tensorflow//third_party/gpus/cuda:cudnn",
         "@org_tensorflow//third_party/gpus/cuda:cublas",
-        ":curand",
+        ":curand"
     ]) + [
-        "@protobuf//:protobuf"
+        "@protobuf//:protobuf",
+        ":openblas",
     ],
     includes = ["include/"],
     defines = if_cuda(["USE_CUDNN"], ["CPU_ONLY"]),
@@ -159,7 +181,6 @@ cc_library(
         "-lz",
         "-ldl",
         "-lm",
-        "-lopenblas",
     ],
     visibility = ["//visibility:public"],
     alwayslink = 1,
