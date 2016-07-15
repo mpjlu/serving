@@ -19,7 +19,7 @@ def tf_serving_workspace(path_prefix = ""):
   native.new_git_repository(
     name = "caffe_git",
     remote = "https://github.com/BVLC/caffe",
-    commit = "a934ca54f3633479ea0573346c510df4f757df6c",
+    commit = "50c9a0fc8eed0101657e9f8da164d88f66242aeb",
     init_submodules = True,
     build_file = path_prefix + "caffe.BUILD",
   )
