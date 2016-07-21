@@ -50,6 +50,15 @@ cc_library(
 ###############################################################################
 
 cc_library(
+    name = "hash",
+    srcs = ["hash.cc"],
+    hdrs = ["hash.h"],
+    deps = [
+        "@org_tensorflow//tensorflow/core:tensorflow",
+    ],
+)
+
+cc_library(
     name = "observer",
     hdrs = ["observer.h"],
     deps = [
@@ -62,10 +71,10 @@ cc_test(
     size = "small",
     srcs = ["observer_test.cc"],
     deps = [
-        "@org_tensorflow//tensorflow/core:lib",
         ":observer",
         ":periodic_function",
         "//tensorflow_serving/core/test_util:test_main",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -93,10 +102,10 @@ cc_test(
     name = "fast_read_dynamic_ptr_test",
     srcs = ["fast_read_dynamic_ptr_test.cc"],
     deps = [
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:tensorflow",
         ":fast_read_dynamic_ptr",
         "//tensorflow_serving/core/test_util:test_main",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:tensorflow",
     ],
 )
 
@@ -104,11 +113,11 @@ cc_test(
     name = "fast_read_dynamic_ptr_benchmark",
     srcs = ["fast_read_dynamic_ptr_benchmark.cc"],
     deps = [
+        ":fast_read_dynamic_ptr",
+        ":periodic_function",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
         "@org_tensorflow//tensorflow/core:test",
-        ":fast_read_dynamic_ptr",
-        ":periodic_function",
     ],
 )
 
@@ -130,9 +139,9 @@ cc_test(
         "optional_test.cc",
     ],
     deps = [
-        "@org_tensorflow//tensorflow/core:lib",
         ":optional",
         "//tensorflow_serving/core/test_util:test_main",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -150,10 +159,10 @@ cc_test(
     name = "periodic_function_test",
     srcs = ["periodic_function_test.cc"],
     deps = [
-        "@org_tensorflow//tensorflow/core:tensorflow",
         ":periodic_function",
         "//tensorflow_serving/core/test_util:test_main",
         "//tensorflow_serving/test_util:fake_clock_env",
+        "@org_tensorflow//tensorflow/core:tensorflow",
     ],
 )
 
@@ -199,8 +208,8 @@ cc_library(
     srcs = ["inline_executor.cc"],
     hdrs = ["inline_executor.h"],
     deps = [
-        "@org_tensorflow//tensorflow/core:lib",
         ":executor",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -218,8 +227,8 @@ cc_library(
     srcs = ["threadpool_executor.cc"],
     hdrs = ["threadpool_executor.h"],
     deps = [
-        "@org_tensorflow//tensorflow/core:lib",
         ":executor",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -237,8 +246,8 @@ cc_library(
     hdrs = ["unique_ptr_with_deps.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "@org_tensorflow//tensorflow/core:lib",
         ":any_ptr",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 

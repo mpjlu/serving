@@ -196,6 +196,10 @@ void RunServer(int port, std::unique_ptr<SessionBundleType> bundle) {
 void configure_batching(BatchingParameters* batching_parameters) {
   batching_parameters->mutable_thread_pool_name()->set_value(
       "mnist_service_batch_threads");
+  // Use a very large queue, to avoid rejecting requests. (Note: a production
+  // server with load balancing may want to use the default, much smaller,
+  // value.)
+  batching_parameters->mutable_max_enqueued_batches()->set_value(1000);
 }
 
 int main(int argc, char** argv) {
@@ -218,6 +222,7 @@ int main(int argc, char** argv) {
   // WARNING(break-tutorial-inline-code): The following code snippet is
   // in-lined in tutorials, please update tutorial documents accordingly
   // whenever code changes.
+
   SessionBundleConfig session_bundle_config;
 
   //////

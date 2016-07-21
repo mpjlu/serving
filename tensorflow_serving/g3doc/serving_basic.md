@@ -189,6 +189,8 @@ int main(int argc, char** argv) {
       session_bundle_config.mutable_batching_parameters();
   batching_parameters->mutable_thread_pool_name()->set_value(
       "mnist_service_batch_threads");
+  // Use a very large queue, to avoid rejecting requests.
+  batching_parameters->mutable_max_enqueued_batches()->set_value(1000);
   ...
 }
 ~~~
@@ -201,7 +203,8 @@ threads used for batched inference, you can do so by setting more values in
 peer threads with which to form a batch -- gRPC promises to adjust the number of
 client threads to keep things flowing smoothly. Lastly, the batcher's timeout
 threshold bounds the amount of time a given request spends in the blocked state,
-so a low request volume does not compromise latency.
+so a low request volume does not compromise latency. For more information about
+batching, see the [Batching Guide](https://github.com/tensorflow/serving/tree/master/tensorflow_serving/batching/README.md).
 
 Whether or not we enable batching, we wind up with a `SessionBundle`; let's look
 at its definition in
@@ -274,12 +277,12 @@ steps:
   With the extracted signature, the server can bind the input and output tensors
   properly and run the session.
 
-  ~~~c++
-    const tensorflow::Status status =
-        bundle_->session->Run({{signature_.input().tensor_name(), input}},
-                              {signature_.scores().tensor_name()}, {},
-                              &outputs);
-  ~~~
+~~~c++
+const tensorflow::Status status =
+   bundle_->session->Run({{signature_.input().tensor_name(), input}},
+                         {signature_.scores().tensor_name()}, {},
+                         &outputs);
+~~~
 
   4. Transform the inference output tensor to protobuf output.
 

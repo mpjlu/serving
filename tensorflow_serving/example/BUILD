@@ -49,9 +49,9 @@ py_binary(
         "mnist_export.py",
     ],
     deps = [
-        "@org_tensorflow//tensorflow:tensorflow_py",
         ":mnist_input_data",
         "//tensorflow_serving/session_bundle:exporter",
+        "@org_tensorflow//tensorflow:tensorflow_py",
     ],
 )
 
@@ -66,12 +66,12 @@ cc_binary(
         "//conditions:default": []
     }),
     deps = [
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:lib",
         ":mnist_inference_proto",
         "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/session_bundle:manifest_proto",
         "//tensorflow_serving/session_bundle:signature",
+        "@grpc//:grpc++",
+        "@org_tensorflow//tensorflow/core:lib",
     ] + select({
         ":use_caffe": [
             "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
@@ -100,28 +100,28 @@ cc_binary(
         "//conditions:default": []
     }),
     deps = [
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:lib",
         ":mnist_inference_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
-        "//tensorflow_serving/batching:batch_scheduler_retrier",
         "//tensorflow_serving/core:manager",
         "//tensorflow_serving/core:servable_handle",
         "//tensorflow_serving/core:servable_id",
         "//tensorflow_serving/session_bundle:signature",
+        "@grpc//:grpc++",
+        "@org_tensorflow//tensorflow/core:lib",
     ] + select({
         ":use_caffe": [
             "//tensorflow_serving/servables/caffe:caffe_session_bundle",
             "//tensorflow_serving/servables/caffe:caffe_simple_servers",
         ],
         "//conditions:default": [
-            "@org_tensorflow//tensorflow/core:framework",
-            "@org_tensorflow//tensorflow/core:protos_all_cc",
-            "@org_tensorflow//tensorflow/core:tensorflow",
             "//tensorflow_serving/session_bundle",
             "//tensorflow_serving/session_bundle:manifest_proto",
             "//tensorflow_serving/servables/tensorflow:simple_servers",
+            "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core:protos_all_cc",
+            "@org_tensorflow//tensorflow/core:tensorflow",
+
         ]
     }),
 )
@@ -133,8 +133,8 @@ py_binary(
         "mnist_inference_pb2.py",
     ],
     deps = [
-        "@org_tensorflow//tensorflow:tensorflow_py",
         ":mnist_input_data",
+        "@org_tensorflow//tensorflow:tensorflow_py",
     ],
 )
 
@@ -152,9 +152,9 @@ py_binary(
         "inception_export.py",
     ],
     deps = [
+        "//tensorflow_serving/session_bundle:exporter",
         "@inception_model//inception",
         "@org_tensorflow//tensorflow:tensorflow_py",
-        "//tensorflow_serving/session_bundle:exporter",
     ],
 )
 
@@ -165,15 +165,9 @@ cc_binary(
     ],
     linkopts = ["-lm"],
     deps = [
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:framework",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:protos_all_cc",
-        "@org_tensorflow//tensorflow/core:tensorflow",
         ":inception_inference_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
-        "//tensorflow_serving/batching:batch_scheduler_retrier",
         "//tensorflow_serving/core:manager",
         "//tensorflow_serving/core:servable_handle",
         "//tensorflow_serving/core:servable_id",
@@ -181,6 +175,11 @@ cc_binary(
         "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/session_bundle:manifest_proto",
         "//tensorflow_serving/session_bundle:signature",
+        "@grpc//:grpc++",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "@org_tensorflow//tensorflow/core:tensorflow",
     ],
 )
 

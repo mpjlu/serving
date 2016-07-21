@@ -57,6 +57,20 @@ Status CaffeSourceAdapter::Convert(const StoragePath& path,
   return Status::OK();
 }
 
+std::function<Status(
+    std::unique_ptr<SourceAdapter<StoragePath, std::unique_ptr<Loader>>>*)>
+CaffeSourceAdapter::GetCreator(
+    const CaffeSourceAdapterConfig& config) {
+  return [&config](std::unique_ptr<tensorflow::serving::SourceAdapter<
+                       StoragePath, std::unique_ptr<Loader>>>* source) {
+    std::unique_ptr<CaffeSourceAdapter> typed_source;
+    TF_RETURN_IF_ERROR(
+        CaffeSourceAdapter::Create(config, &typed_source));
+    *source = std::move(typed_source);
+    return Status::OK();
+  };
+}
+
 
 }  // namespace serving
 }  // namespace tensorflow

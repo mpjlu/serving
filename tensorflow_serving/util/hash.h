@@ -13,27 +13,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow_serving/core/test_util/manager_test_util.h"
+#ifndef TENSORFLOW_SERVING_UTIL_HASH_H_
+#define TENSORFLOW_SERVING_UTIL_HASH_H_
+
+#include "tensorflow/core/platform/types.h"
 
 namespace tensorflow {
 namespace serving {
-namespace test_util {
 
-AspiredVersionsManagerTestAccess::AspiredVersionsManagerTestAccess(
-    AspiredVersionsManager* manager)
-    : manager_(manager) {}
+// Combines 2 hashes and returns a 3rd one.
+uint64 HashCombine(uint64 hash1, uint64 hash2);
 
-void AspiredVersionsManagerTestAccess::RunManageState() {
-  manager_->ManageState();
-}
-
-CachingManagerTestAccess::CachingManagerTestAccess(CachingManager* manager)
-    : manager_(manager) {}
-
-int64 CachingManagerTestAccess::GetLoadMutexMapSize() const {
-  return manager_->GetLoadMutexMapSize();
-}
-
-}  // namespace test_util
 }  // namespace serving
 }  // namespace tensorflow
+
+#endif  // TENSORFLOW_SERVING_UTIL_HASH_H_

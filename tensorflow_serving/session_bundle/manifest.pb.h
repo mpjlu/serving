@@ -13,27 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow_serving/core/test_util/manager_test_util.h"
+#ifndef TENSORFLOW_SERVING_SESSION_BUNDLE_MANIFEST_PB_H_
+#define TENSORFLOW_SERVING_SESSION_BUNDLE_MANIFEST_PB_H_
 
-namespace tensorflow {
-namespace serving {
-namespace test_util {
+#include "tensorflow/contrib/session_bundle/manifest.pb.h"
 
-AspiredVersionsManagerTestAccess::AspiredVersionsManagerTestAccess(
-    AspiredVersionsManager* manager)
-    : manager_(manager) {}
-
-void AspiredVersionsManagerTestAccess::RunManageState() {
-  manager_->ManageState();
-}
-
-CachingManagerTestAccess::CachingManagerTestAccess(CachingManager* manager)
-    : manager_(manager) {}
-
-int64 CachingManagerTestAccess::GetLoadMutexMapSize() const {
-  return manager_->GetLoadMutexMapSize();
-}
-
-}  // namespace test_util
-}  // namespace serving
-}  // namespace tensorflow
+#endif  // TENSORFLOW_SERVING_SESSION_BUNDLE_MANIFEST_PB_H_
