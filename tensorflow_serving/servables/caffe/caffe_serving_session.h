@@ -37,15 +37,26 @@ namespace caffe {
 namespace tensorflow {
 namespace serving {
 
-
-
 // No session options for Caffe
 struct CaffeSessionOptions {};
 
-// Encapsulates a caffe network 
+// caffe model definition and class labels
+struct CaffeMetaGraphDef {
+  caffe::NetParameter model_def;
+  tensorflow::TensorProto classes;
+};
+
+// name of the output tensor which contains the class
+// labels of the serving session (if any).
+const char kClassLabelTensorName[] = "__labels__";
+
+// Encapsulates a caffe network
 class CaffeServingSession : public ServingSession {
  public:
-  CaffeServingSession(const caffe::NetParameter& graph, const CaffeSessionOptions& opts);
+
+  CaffeServingSession(const CaffeMetaGraphDef& graph,
+                      const CaffeSessionOptions& opts);
+
   virtual ~CaffeServingSession();
 
   Status CopyTrainedLayersFromBinaryProto(const string trained_filename);
@@ -59,13 +70,14 @@ class CaffeServingSession : public ServingSession {
   Status Reshape(unsigned int batch_size);
 
   std::unique_ptr<caffe::Net<float>> net_;
+  std::unique_ptr<Tensor> class_labels_;
   unsigned int batch_size_;
 
   std::unordered_map<string, unsigned int> input_blob_map_;
   std::unordered_map<string, unsigned int> output_blob_map_;
   SimpleThreadSink ts_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(CaffeServingSession);  
+  TF_DISALLOW_COPY_AND_ASSIGN(CaffeServingSession);
 };
 
 }  // namespace serving

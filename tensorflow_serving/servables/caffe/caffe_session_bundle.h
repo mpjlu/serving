@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-// Low-level functionality for setting up a inference Session.
+// Low-level functionality for setting up a Caffe inference Session.
 
 #pragma once
 
@@ -24,21 +24,23 @@ limitations under the License.
 #include "tensorflow/core/public/session.h"
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
 
-#include "caffe/proto/caffe.pb.h"
+#include "tensorflow/core/framework/tensor.pb.h"
 
 namespace tensorflow {
 namespace serving {
 
 const char kGraphDefFilename[] = "deploy.prototxt";
+const char kVariablesFilename[] = "weights.caffemodel";
+const char kGraphTxtLabelFilename[] = "classlabels.txt";
 
 // A global initialization function that you should call in your main function.
 // Currently it just invokes caffe::GlobalInit(..)
 void CaffeGlobalInit(int* pargc, char*** pargv);
 
-// The closest thing we can get to a TF session bundle?
+// Very roughly equivalent to a TF session bundle
 struct CaffeSessionBundle {
   std::unique_ptr<tensorflow::Session> session;
-  caffe::NetParameter meta_graph_def;
+  CaffeMetaGraphDef meta_graph_def;
 };
 
 // Loads a manifest and initialized session using the output of an Exporter

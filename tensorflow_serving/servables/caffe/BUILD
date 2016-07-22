@@ -58,7 +58,6 @@ cc_library(
     hdrs = ["caffe_session_bundle.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//external:caffe",
         "@protobuf//:cc_wkt_protos",
         "@protobuf//:protobuf_lite",
         "@org_tensorflow//tensorflow/core:protos_all_cc",

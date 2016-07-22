@@ -26,14 +26,12 @@ limitations under the License.
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "google/protobuf/any.pb.h"
-#include "google/protobuf/repeated_field.h"
-#include "google/protobuf/text_format.h"
+#include <memory>
 
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/io/path.h"
+#include "tensorflow/core/lib/io/inputbuffer.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/types.h"
 
@@ -46,37 +44,66 @@ namespace {
 // Create a network using the given options and load the graph.
 Status CreateSessionFromGraphDef(
     const CaffeSessionOptions& options,
-    const caffe::NetParameter& graph,
+    const CaffeMetaGraphDef& graph,
     std::unique_ptr<CaffeServingSession>* session) {
   session->reset(new CaffeServingSession(graph, options));
   return Status::OK();
 }
 
+Status GetClassLabelsFromExport(const StringPiece export_dir,
+                                tensorflow::TensorProto* proto) {
+  const string labels_path =
+      tensorflow::io::JoinPath(export_dir, kGraphTxtLabelFilename);
+
+  // default state
+  proto->set_dtype(DT_INVALID);
+  TensorShape({}).AsProto(proto->mutable_tensor_shape());
+
+  if (Env::Default()->FileExists(labels_path)) {
+    /* Load labels. */
+    std::unique_ptr<RandomAccessFile> file;
+    TF_RETURN_IF_ERROR(Env::Default()->NewRandomAccessFile(labels_path, &file));
+    {
+      const size_t kBufferSizeBytes = 8192;
+      io::InputBuffer in(file.get(), kBufferSizeBytes);
+
+      string line;
+      while (in.ReadLine(&line).ok()) {
+        proto->add_string_val(line);
+      }
+    }
+    proto->set_dtype(DT_STRING);
+    TensorShape({ proto->string_val().size() }).AsProto(
+      proto->mutable_tensor_shape());
+  }
+  return Status::OK();
+}
+
 Status GetGraphDefFromExport(const StringPiece export_dir,
-                             caffe::NetParameter* graph_def) {
-  const string graph_def_path =
+                             caffe::NetParameter* model_def) {
+  const string model_def_path =
       tensorflow::io::JoinPath(export_dir, kGraphDefFilename);
-  
-  if (!Env::Default()->FileExists(graph_def_path)) {
+
+  if (!Env::Default()->FileExists(model_def_path)) {
     return errors::NotFound(
         strings::StrCat("Caffe model does not exist: ",
-                        graph_def_path));
+                        model_def_path));
   }
-  else if (!ReadProtoFromTextFile(graph_def_path, graph_def)) {
+  else if (!ReadProtoFromTextFile(model_def_path, model_def)) {
     return errors::InvalidArgument(
       strings::StrCat("Caffe network failed to load from file: ",
-                      graph_def_path));
-  } else if (!UpgradeNetAsNeeded(graph_def_path, graph_def)) {
+                      model_def_path));
+  }
+  else if (!UpgradeNetAsNeeded(model_def_path, model_def)) {
     return errors::InvalidArgument(
       strings::StrCat("Network upgrade failed from while loading from file: ",
-                      graph_def_path));
+                      model_def_path));
   }
-  graph_def->mutable_state()->set_phase(caffe::TEST);
+  model_def->mutable_state()->set_phase(caffe::TEST);
   return Status::OK();
 }
 
 string GetVariablesFilename(const StringPiece export_dir) {
-  const char kVariablesFilename[] = "weights.caffemodel";
   return tensorflow::io::JoinPath(export_dir, kVariablesFilename);
 }
 
@@ -96,17 +123,21 @@ Status RunRestoreOp(const StringPiece export_dir,
 }  // namespace
 
 tensorflow::Status LoadSessionBundleFromPath(
-    const CaffeSessionOptions& options, 
+    const CaffeSessionOptions& options,
     const StringPiece export_dir,
-    CaffeSessionBundle* bundle) 
+    CaffeSessionBundle* bundle)
 {
   LOG(INFO) << "Attempting to load a SessionBundle from: " << export_dir;
-  // load prototxt
+  // load model prototxt
   TF_RETURN_IF_ERROR(
-      GetGraphDefFromExport(export_dir, &(bundle->meta_graph_def)));
+      GetGraphDefFromExport(export_dir, &(bundle->meta_graph_def.model_def)));
+
+  // load class labels
+  TF_RETURN_IF_ERROR(
+      GetClassLabelsFromExport(export_dir, &(bundle->meta_graph_def.classes)));
 
   // initialize network
-  const caffe::NetParameter& graph_def = bundle->meta_graph_def;
+  const CaffeMetaGraphDef& graph_def = bundle->meta_graph_def;
   std::unique_ptr<CaffeServingSession> caffe_session;
   TF_RETURN_IF_ERROR(
       CreateSessionFromGraphDef(options, graph_def, &caffe_session));

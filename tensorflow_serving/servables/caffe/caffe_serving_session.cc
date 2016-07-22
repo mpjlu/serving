@@ -21,7 +21,7 @@ limitations under the License.
 // note: this header resides in third_party/caffe
 #include "openblas_prelude.h"
 
-// avoid fp-16 redefinitions when using 
+// avoid fp-16 redefinitions when using
 // a recent version of cuda
 #if CUDA_VERSION >= 7050
 #  define EIGEN_HAS_CUDA_FP16
@@ -63,7 +63,7 @@ Tensor AsTensor(gtl::ArraySlice<T> vals, const TensorShape& shape) {
 // A guesstimate of the batch size; assume the outermost
 // dimension of the input blob(s) indicates the batch size,
 // unless the input is 1-dimensional, in which case assume
-// batch size of 1. (I couldn't find much concrete 
+// batch size of 1. (I couldn't find much concrete
 // documentation on this.)
 unsigned int BatchSizeOf(const caffe::Net<float>& net) {
   unsigned int x = 1;
@@ -88,7 +88,7 @@ void GetGPUs(std::vector<int>* gpus) {
 #endif
 }
 
-bool TryAssignGPU() 
+bool TryAssignGPU()
 {
   std::vector<int> gpus;
   GetGPUs(&gpus);
@@ -97,12 +97,12 @@ bool TryAssignGPU()
     caffe::Caffe::SetDevice(gpus[0]);
     caffe::Caffe::set_mode(caffe::Caffe::GPU);
     return true;
-  } 
+  }
   else {
     // tensorflow serving is a multi-threaded application;
     // avoid using multi-threaded OpenBLAS for now since this
     // is quite likely to cause problems when executing
-    // caffe::forward(..) within a critical section 
+    // caffe::forward(..) within a critical section
     // (and could lead to deadlock).
     openblas_set_num_threads(1);
     caffe::Caffe::set_mode(caffe::Caffe::CPU);
@@ -110,26 +110,29 @@ bool TryAssignGPU()
   }
 }
 
-CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph, 
-                                         const CaffeSessionOptions& opts) 
+CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
+                                         const CaffeSessionOptions& opts)
     : net_{ nullptr }
+    , class_labels_{ nullptr }
     , batch_size_{ 0 }
     , ts_()
 {
   bool is_gpu = ts_.run(
-    [](std::unique_ptr<caffe::Net<float>>* net, 
-       const caffe::NetParameter* graph) 
+    [](std::unique_ptr<caffe::Net<float>>* net,
+       const caffe::NetParameter* graph)
     {
       bool is_gpu = TryAssignGPU();
       net->reset(new caffe::Net<float>(*graph));
       return is_gpu;
-    }, 
-    &net_, 
-    &graph);
-  
-  LOG(INFO) << "Caffe execution mode: " << 
+    },
+    &net_,
+    &graph.model_def);
+
+  LOG(INFO) << "Caffe execution mode: " <<
     (is_gpu ? "GPU" : "CPU");
+
   {
+    // map blob names to indices
     const std::vector<string>& blobs = net_->blob_names();
     for (int idx : net_->input_blob_indices()) {
       input_blob_map_.emplace(blobs[idx], idx);
@@ -139,12 +142,23 @@ CaffeServingSession::CaffeServingSession(const caffe::NetParameter& graph,
     }
   }
 
+  if (graph.classes.dtype() != DT_INVALID) {
+    class_labels_.reset(new Tensor());
+    if (!class_labels_->FromProto(graph.classes)) {
+      class_labels_.release();
+    }
+  }
+
   batch_size_ = BatchSizeOf(*net_);
   LOG(INFO) << "Loaded Network:"
-      << "\n  name: " << net_->name() 
-      << "\n  inputs: " << input_blob_map_.size() 
-      << "\n  outputs: " << output_blob_map_.size() 
-      << "\n  initial batch-size: " << batch_size_;
+      << "\n  name: " << net_->name()
+      << "\n  inputs: " << input_blob_map_.size()
+      << "\n  outputs: " << output_blob_map_.size()
+      << "\n  initial batch-size: " << batch_size_
+      << "\n  output classes: " << (
+                class_labels_ == nullptr ?
+                  "(none)" : class_labels_->DebugString()
+              );
 }
 
 CaffeServingSession::~CaffeServingSession() = default;
@@ -230,12 +244,12 @@ Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string traine
   if (!caffe::ReadProtoFromBinaryFile(trained_filename, &param)) {
     return errors::InvalidArgument(
       strings::StrCat("Caffe network failed to load pretrained layers from file: ",
-                      trained_filename));  
+                      trained_filename));
   }
 
   return ts_.run(
-    [](caffe::Net<float>* net, 
-       const caffe::NetParameter& param) 
+    [](caffe::Net<float>* net,
+       const caffe::NetParameter& param)
     {
       // TODO(rayg): this can abort
       net->CopyTrainedLayersFrom(param);
@@ -252,12 +266,12 @@ Status CaffeServingSession::Reshape(unsigned int batch_size)
 
   batch_size_ = ts_.run(
     [](caffe::Net<float>* net,
-       unsigned int batch_size) 
+       unsigned int batch_size)
     {
       for (int idx : net->input_blob_indices()) {
         auto& blob = *(net->blobs().at(idx));
         std::vector<int> new_shape{ blob.shape() };
-    
+
         if (new_shape.size() > 1 && new_shape[0] > 0) {
           new_shape[0] = batch_size;
           blob.Reshape(new_shape);
