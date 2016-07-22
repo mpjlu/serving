@@ -220,21 +220,39 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
       // copy to output tensors
       outputs->clear();
       for (const string& out: output_tensor_names) {
-        auto it = output_blob_map_.find(out);
-        if (it == output_blob_map_.end()) {
-          return errors::InvalidArgument("Specified network output '", out,
-                                         "' does not exist.");
+        if (out == kClassLabelTensorName) {
+          // class labels is a special case
+          TF_RETURN_IF_ERROR(OutputClassLabels(outputs));
         }
-        const caffe::Blob<float>& blob = *net_blobs[it->second];
-        // 2-D output
-        Tensor t = AsTensor<float>(
-          { blob.cpu_data(), batch_size * (unsigned long)blob.channels() },
-          { batch_size, blob.channels() });
-        outputs->push_back(t);
+        else {
+          // search the net for the relevant blob
+          auto it = output_blob_map_.find(out);
+          if (it == output_blob_map_.end()) {
+            return errors::InvalidArgument(
+              "Specified network output '", out, "' does not exist.");
+          }
+          const caffe::Blob<float>& blob = *net_blobs[it->second];
+          // 2-D output
+          Tensor t = AsTensor<float>(
+            { blob.cpu_data(), batch_size * (unsigned long)blob.channels() },
+            { batch_size, blob.channels() });
+
+          outputs->push_back(t);
+        }
       }
       return Status::OK();
     },
     net_.get());
+}
+
+Status CaffeServingSession::OutputClassLabels(std::vector<Tensor>* outputs)
+{
+  if (class_labels_ == nullptr) {
+    return errors::InvalidArgument(
+      "Class labels were requested but none have been loaded");
+  }
+  outputs.push(class_labels_);
+  return Status::OK();
 }
 
 Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string trained_filename)

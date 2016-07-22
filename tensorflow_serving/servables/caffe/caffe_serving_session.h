@@ -68,6 +68,7 @@ class CaffeServingSession : public ServingSession {
 
  private:
   Status Reshape(unsigned int batch_size);
+  Status OutputClassLabels(std::vector<Tensor>* outputs);
 
   std::unique_ptr<caffe::Net<float>> net_;
   std::unique_ptr<Tensor> class_labels_;
