@@ -65,6 +65,7 @@ limitations under the License.
 #else
   #include "tensorflow_serving/servables/caffe/caffe_simple_servers.h"
   #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
+  #include "tensorflow_serving/servables/caffe/caffe_signature.h"
 #endif
 
 using grpc::InsecureServerCredentials;
@@ -307,15 +308,8 @@ void MnistServiceImpl::DoClassifyInBatch(
   // Get the default signature of the graph.  Expected to be a
   // classification signature.
   tensorflow::serving::ClassificationSignature signature;
-#ifndef USE_CAFFE
   const tensorflow::Status signature_status =
       GetClassificationSignature(bundle->meta_graph_def, &signature);
-#else
-  // TODO(rayg): implement GetClassificationSignature for Caffe
-  const tensorflow::Status signature_status;
-  signature.mutable_input()->set_tensor_name("data");
-  signature.mutable_scores()->set_tensor_name("prob");
-#endif
   if (!signature_status.ok()) {
     complete_with_error(StatusCode::INTERNAL,
                         signature_status.error_message());

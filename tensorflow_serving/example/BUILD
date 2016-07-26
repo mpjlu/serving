@@ -69,7 +69,6 @@ cc_binary(
         ":mnist_inference_proto",
         "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/session_bundle:manifest_proto",
-        "//tensorflow_serving/session_bundle:signature",
         "@grpc//:grpc++",
         "@org_tensorflow//tensorflow/core:lib",
     ] + select({
@@ -77,6 +76,7 @@ cc_binary(
             "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
             "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
             "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+            "//tensorflow_serving/servables/caffe:caffe_signature",
         ],
         "//conditions:default": [
             "@org_tensorflow//tensorflow/core:core_cpu",
@@ -85,6 +85,7 @@ cc_binary(
             "@org_tensorflow//tensorflow/core:tensorflow",
             "//tensorflow_serving/servables/tensorflow:session_bundle_config_proto",
             "//tensorflow_serving/servables/tensorflow:session_bundle_factory",        
+            "//tensorflow_serving/session_bundle:signature",
         ]
     }),
 )
@@ -113,6 +114,7 @@ cc_binary(
         ":use_caffe": [
             "//tensorflow_serving/servables/caffe:caffe_session_bundle",
             "//tensorflow_serving/servables/caffe:caffe_simple_servers",
+            "//tensorflow_serving/servables/caffe:caffe_signature",
         ],
         "//conditions:default": [
             "//tensorflow_serving/session_bundle",

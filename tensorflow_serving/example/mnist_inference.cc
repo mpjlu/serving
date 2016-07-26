@@ -48,7 +48,6 @@ limitations under the License.
 #include "tensorflow_serving/example/mnist_inference.pb.h"
 #include "tensorflow_serving/session_bundle/manifest.pb.h"
 #include "tensorflow_serving/session_bundle/session_bundle.h"
-#include "tensorflow_serving/session_bundle/signature.h"
 
 #ifndef USE_CAFFE
   #include "tensorflow/core/framework/types.pb.h"
@@ -58,10 +57,12 @@ limitations under the License.
   #include "tensorflow/core/public/session_options.h"
   #include "tensorflow_serving/servables/tensorflow/session_bundle_config.pb.h"
   #include "tensorflow_serving/servables/tensorflow/session_bundle_factory.h"
+  #include "tensorflow_serving/session_bundle/signature.h"
 #else
   #include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"
   #include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
   #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
+  #include "tensorflow_serving/servables/caffe/caffe_signature.h"
 #endif
 
 using grpc::InsecureServerCredentials;
@@ -106,14 +107,8 @@ class MnistServiceImpl final : public MnistService::Service {
  public:
   explicit MnistServiceImpl(std::unique_ptr<SessionBundleType> bundle)
       : bundle_(std::move(bundle)) {
-#ifndef USE_CAFFE
     signature_status_ = tensorflow::serving::GetClassificationSignature(
         bundle_->meta_graph_def, &signature_);
-#else
-    // TODO(rayg) GetClassificationSignature impl.
-    signature_.mutable_input()->set_tensor_name("data");
-    signature_.mutable_scores()->set_tensor_name("prob");
-#endif
   }
 
   Status Classify(ServerContext* context, const MnistRequest* request,
