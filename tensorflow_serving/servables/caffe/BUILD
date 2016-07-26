@@ -53,6 +53,19 @@ serving_proto_library(
 )
 
 cc_library(
+    name = "caffe_signature",
+    srcs = ["caffe_signature.cc"],
+    hdrs = ["caffe_signature.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":caffe_serving_session",
+        "//tensorflow_serving/session_bundle:manifest_proto",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
     name = "caffe_session_bundle",
     srcs = ["caffe_session_bundle.cc"],
     hdrs = ["caffe_session_bundle.h"],
@@ -63,8 +76,6 @@ cc_library(
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
-        "//tensorflow_serving/session_bundle:manifest_proto",
-        "//tensorflow_serving/session_bundle:signature",
         ":caffe_serving_session",
     ],
 )

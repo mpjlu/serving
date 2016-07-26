@@ -136,6 +136,12 @@ tensorflow::Status LoadSessionBundleFromPath(
   TF_RETURN_IF_ERROR(
       GetClassLabelsFromExport(export_dir, &(bundle->meta_graph_def.classes)));
 
+  // resolve network inputs and outputs
+  TF_RETURN_IF_ERROR(
+      ::caffe::ResolveNetInsOuts(bundle->meta_graph_def.model_def,
+                                 bundle->meta_graph_def.resolved_inputs,
+                                 bundle->meta_graph_def.resolved_outputs));
+
   // initialize network
   const CaffeMetaGraphDef& graph_def = bundle->meta_graph_def;
   std::unique_ptr<CaffeServingSession> caffe_session;
