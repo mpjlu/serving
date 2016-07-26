@@ -62,6 +62,7 @@ class CaffeSourceAdapterTest : public ::testing::Test {
     ServableData<std::unique_ptr<Loader>> loader_data =
         test_util::RunSourceAdapter(export_dir_, adapter.get());
     TF_ASSERT_OK(loader_data.status());
+    
     std::unique_ptr<Loader> loader = loader_data.ConsumeDataOrDie();
 
     // We should get a non-empty resource estimate, and we should get the same
@@ -77,6 +78,15 @@ class CaffeSourceAdapterTest : public ::testing::Test {
     TF_ASSERT_OK(loader->Load(ResourceAllocation()));
 
     const CaffeSessionBundle* bundle = loader->servable().get<CaffeSessionBundle>();
+    ASSERT_EQ(bundle->meta_graph_def.resolved_inputs.size(), 1);
+    ASSERT_EQ(bundle->meta_graph_def.resolved_inputs[0], "data");
+
+    ASSERT_EQ(bundle->meta_graph_def.resolved_outputs.size(), 1);
+    ASSERT_EQ(bundle->meta_graph_def.resolved_outputs[0], "prob");
+
+    ASSERT_EQ(bundle->meta_graph_def.classes.dtype(), DT_STRING);
+    ASSERT_EQ(bundle->meta_graph_def.classes.string_val().size(), 10);
+
     loader->Unload();
   }
 };

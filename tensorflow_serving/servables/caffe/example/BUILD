@@ -36,6 +36,7 @@ genrule(
     outs = [
         "mnist_pretrained_caffe/00000023/deploy.prototxt",
         "mnist_pretrained_caffe/00000023/weights.caffemodel",
+        "mnist_pretrained_caffe/00000023/classlabels.txt",
     ],
     tools = [
         ":mnist_caffe_fetch",
