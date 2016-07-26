@@ -28,7 +28,6 @@ limitations under the License.
 #include "tensorflow_serving/core/manager.h"
 #include "tensorflow_serving/core/storage_path.h"
 #include "tensorflow_serving/core/target.h"
-//#include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 
 namespace tensorflow {
 namespace serving {

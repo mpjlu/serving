@@ -1,3 +1,4 @@
+/* Copyright 2016 IBM Corp. All Rights Reserved. */
 #include <queue>
 #include <memory>
 #include <thread>
@@ -13,17 +14,17 @@ SimpleThreadSink::SimpleThreadSink()
     : stop_(false)
 {
   worker_ = std::thread(
-  	[this] {
+    [this] {
       for(;;) {
         std::function<void()> task;
         {
           std::unique_lock<std::mutex> lock(this->queue_mutex_);
           this->condition_.wait(lock,
             [this]{ return this->stop_ || !this->tasks_.empty(); });
-          
+
           if (this->stop_ && this->tasks_.empty())
             return;
-          
+
           task = std::move(this->tasks_.front());
           this->tasks_.pop();
         }

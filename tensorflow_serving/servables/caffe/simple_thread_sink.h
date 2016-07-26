@@ -1,4 +1,5 @@
-#pragma once 
+/* Copyright 2016 IBM Corp. All Rights Reserved. */
+#pragma once
 
 #include <queue>
 #include <memory>
@@ -11,18 +12,18 @@
 class SimpleThreadSink {
  public:
   SimpleThreadSink();
-  
+
   template<class F, class... Args>
-  auto run(F&& f, Args&&... args) 
+  auto run(F&& f, Args&&... args)
       -> typename std::result_of<F(Args...)>::type;
-      
+
   ~SimpleThreadSink();
  private:
   // joinable worker
   std::thread worker_;
   // the task queue
   std::queue<std::function<void()>> tasks_;
-  
+
   // synchronization
   std::mutex queue_mutex_;
   std::condition_variable condition_;
@@ -36,14 +37,14 @@ class SimpleThreadSink {
 
 // add new work item to the pool and block until its complete
 template<class F, class... Args>
-auto SimpleThreadSink::run(F&& f, Args&&... args) 
+auto SimpleThreadSink::run(F&& f, Args&&... args)
     -> typename std::result_of<F(Args...)>::type
 {
   using return_type = typename std::result_of<F(Args...)>::type;
 
   auto task = std::packaged_task<return_type()>(
     std::bind(std::forward<F>(f), std::forward<Args>(args)...));
-      
+
   std::future<return_type> res = task.get_future();
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
