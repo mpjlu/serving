@@ -18,6 +18,7 @@ limitations under the License.
 #include "caffe/blob.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
+#include "caffe/util/insert_splits.hpp"
 // note: this header resides in third_party/caffe
 #include "openblas_prelude.h"
 
@@ -34,7 +35,7 @@ limitations under the License.
 #include <utility>
 #include <vector>
 #include <algorithm>
-#include <unordered_map>
+#include <unordered_set>
 
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -251,7 +252,7 @@ Status CaffeServingSession::OutputClassLabels(std::vector<Tensor>* outputs)
     return errors::InvalidArgument(
       "Class labels were requested but none have been loaded");
   }
-  outputs.push(class_labels_);
+  outputs->emplace_back(*class_labels_);
   return Status::OK();
 }
 
@@ -307,3 +308,63 @@ Status CaffeServingSession::Reshape(unsigned int batch_size)
 
 } // namespace serving
 } // namespace tensorflow
+
+namespace caffe {
+
+::tensorflow::Status ResolveNetInsOuts(const caffe::NetParameter& in_param,
+                                       std::vector<string>& in_blobs,
+                                       std::vector<string>& out_blobs)
+{
+  // Filter layers based on their include/exclude rules and
+  // the current NetState.
+  NetParameter filtered_param;
+  caffe::Net<float>::FilterNet(in_param, &filtered_param);
+
+  // Create a copy of filtered_param with splits
+  // added where necessary.
+  NetParameter param;
+  InsertSplits(filtered_param, &param);
+
+  std::unordered_set<string> available_blobs;
+  for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
+    const LayerParameter& lp = param.layer(layer_id);
+
+    // layer inputs
+    int num_bottom = lp.bottom_size();
+    for (int idx = 0; idx < num_bottom; ++idx) {
+      const string& blob_name = lp.bottom(idx);
+
+      if (available_blobs.find(blob_name) == available_blobs.end()) {
+        return ::tensorflow::errors::InvalidArgument(
+          ::tensorflow::strings::StrCat(
+            "Unknown bottom blob '", blob_name,
+            "' (layer '", lp.name(),
+            "', bottom index ", idx, ")"));
+      }
+      else
+        available_blobs.erase(blob_name);
+    }
+
+    // layer outputs
+    int num_top = lp.top_size();
+    for (int idx = 0; idx < num_top; ++idx) {
+      const string& blob_name = (num_top > idx) ?
+        lp.top(idx) : "(automatic)";
+
+      available_blobs.insert(blob_name);
+
+      // Collect Input layer tops as Net inputs.
+      if (lp.type() == "Input") {
+        in_blobs.push_back(blob_name);
+      }
+    }
+  }
+
+  // remaining blobs are outputs
+  for (auto it = available_blobs.begin(); it != available_blobs.end(); ++it)
+    out_blobs.push_back(*it);
+
+  return ::tensorflow::Status::OK();
+}
+
+} // namespace caffe

@@ -29,10 +29,18 @@ limitations under the License.
 #include "tensorflow_serving/servables/caffe/simple_thread_sink.h"
 #include "tensorflow_serving/servables/tensorflow/serving_session.h"
 
-// forward decl caffe::Net
 namespace caffe {
- template<class T> class Net;
-}
+// forward decl caffe::Net
+template<class T> class Net;
+
+// Caffe doesn't seem to provide an easy way to determine
+// the network inputs/outputs without initializing one;
+//
+// This implementation is based on on caffe::Net::Init(...)
+::tensorflow::Status ResolveNetInsOuts(const caffe::NetParameter& param,
+                                       std::vector<std::string>& in_blobs,
+                                       std::vector<std::string>& out_blobs);
+} // napespace caffe
 
 namespace tensorflow {
 namespace serving {
@@ -40,10 +48,14 @@ namespace serving {
 // No session options for Caffe
 struct CaffeSessionOptions {};
 
-// caffe model definition and class labels
+// caffe model definition and class labels,
+// and computed inputs and outputs
 struct CaffeMetaGraphDef {
   caffe::NetParameter model_def;
   tensorflow::TensorProto classes;
+
+  std::vector<string> resolved_inputs;
+  std::vector<string> resolved_outputs;
 };
 
 // name of the output tensor which contains the class
