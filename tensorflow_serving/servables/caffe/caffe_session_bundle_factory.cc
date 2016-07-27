@@ -79,25 +79,15 @@ Status CaffeSessionBundleFactory::Create(
 Status CaffeSessionBundleFactory::EstimateResourceRequirement(
     const string& path, ResourceAllocation* estimate) const 
 {
-//  const char kVariablesFilenameRegexp[] = "export(-[0-9]+-of-[0-9]+)?";
-  if (!Env::Default()->FileExists(path)) {
-    return errors::NotFound("Nonexistent export path: ", path);
+  const string file_path = io::JoinPath(path, kVariablesFilename);
+  if (!Env::Default()->FileExists(file_path)) {
+    return errors::NotFound("Nonexistent export path: ", file_path);
   }
+  uint64 file_size;
+  TF_RETURN_IF_ERROR(Env::Default()->GetFileSize(file_path, &file_size));
 
-  uint64 total_variable_file_size = 0;
-//  std::vector<string> files;
-//  TF_RETURN_IF_ERROR(Env::Default()->GetChildren(path, &files));
-//  for (const string& file : files) {
-//    if (!RE2::FullMatch(file, kVariablesFilenameRegexp)) {
-//      continue;
-//    }
-//    const string file_path = io::JoinPath(path, file);
-//    uint64 file_size;
-//    TF_RETURN_IF_ERROR(Env::Default()->GetFileSize(file_path, &file_size));
-//    total_variable_file_size += file_size;
-//  }
   const uint64 ram_requirement =
-      total_variable_file_size * kResourceEstimateRAMMultiplier +
+      file_size * kResourceEstimateRAMMultiplier +
       kResourceEstimateRAMPadBytes;
 
   ResourceAllocation::Entry* ram_entry = estimate->add_resource_quantities();

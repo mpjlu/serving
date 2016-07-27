@@ -46,7 +46,7 @@ class CaffeSessionBundleFactory {
   // Constants used in the resource estimation heuristic. See the documentation
   // on EstimateResourceRequirements().
   static constexpr double kResourceEstimateRAMMultiplier = 1.5;
-  static constexpr int kResourceEstimateRAMPadBytes = 10 << 20 /* 10 MB */;
+  static constexpr int kResourceEstimateRAMPadBytes = 5 << 20 /* 5 MB */;
 
   static Status Create(const CaffeSessionBundleConfig& config,
                        std::unique_ptr<CaffeSessionBundleFactory>* factory);

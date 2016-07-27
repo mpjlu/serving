@@ -63,8 +63,8 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
     ASSERT_EQ(28 * 28, input_sample_.size());
     gtl::ArraySlice<float> input_slice(input_sample_);
 
-    std::vector<std::pair<string, Tensor>> inputs { 
-      {"data", test::AsTensor(input_slice, {1, 1, 28, 28}) } 
+    std::vector<std::pair<string, Tensor>> inputs {
+      {"data", test::AsTensor(input_slice, {1, 1, 28, 28}) }
     };
     std::vector<Tensor> outputs;
 
@@ -117,36 +117,41 @@ TEST_F(CaffeSessionBundleFactoryTest, Batching) {
   }
 }
 
-// TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithBadExport) {
-//   const CaffeSessionBundleConfig config;
-//   std::unique_ptr<CaffeSessionBundleFactory> factory;
-//   TF_ASSERT_OK(CaffeSessionBundleFactory::Create(config, &factory));
-//   ResourceAllocation resource_requirement;
-//   const Status status = factory->EstimateResourceRequirement(
-//       "/a/bogus/export/dir", &resource_requirement);
-//   EXPECT_FALSE(status.ok());
-// }
+TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithBadExport) {
+  const CaffeSessionBundleConfig config;
+  std::unique_ptr<CaffeSessionBundleFactory> factory;
 
-// TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithGoodExport) {
-//   const uint64 kVariableFileSize = 169;
-//   const uint64 expected_ram_requirement =
-//       kVariableFileSize * CaffeSessionBundleFactory::kResourceEstimateRAMMultiplier +
-//       CaffeSessionBundleFactory::kResourceEstimateRAMPadBytes;
-//   ResourceAllocation want;
-//   ResourceAllocation::Entry* ram_entry = want.add_resource_quantities();
-//   Resource* ram_resource = ram_entry->mutable_resource();
-//   ram_resource->set_device(device_types::kMain);
-//   ram_resource->set_kind(resource_kinds::kRamBytes);
-//   ram_entry->set_quantity(expected_ram_requirement);
+  TF_ASSERT_OK(CaffeSessionBundleFactory::Create(config, &factory));
+  ResourceAllocation resource_requirement;
 
-//   const SessionBundleConfig config;
-//   std::unique_ptr<SessionBundleFactory> factory;
-//   TF_ASSERT_OK(SessionBundleFactory::Create(config, &factory));
-//   ResourceAllocation got;
-//   TF_ASSERT_OK(factory->EstimateResourceRequirement(export_dir_, &got));
+  const Status status = factory->EstimateResourceRequirement(
+      "/a/bogus/export/dir", &resource_requirement);
 
-//   EXPECT_THAT(got, EqualsProto(want));
-// }
+  EXPECT_FALSE(status.ok());
+}
+
+TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithGoodExport) {
+  const uint64 kVariableFileSize = 1724991 /* bytes (approx. 1.6 MB) */;
+  const uint64 expected_ram_requirement =
+      kVariableFileSize * CaffeSessionBundleFactory::kResourceEstimateRAMMultiplier +
+      CaffeSessionBundleFactory::kResourceEstimateRAMPadBytes;
+
+  ResourceAllocation want;
+  ResourceAllocation::Entry* ram_entry = want.add_resource_quantities();
+  ram_entry->set_quantity(expected_ram_requirement);
+
+  Resource* ram_resource = ram_entry->mutable_resource();
+  ram_resource->set_device(device_types::kMain);
+  ram_resource->set_kind(resource_kinds::kRamBytes);
+
+  const CaffeSessionBundleConfig config;
+  std::unique_ptr<CaffeSessionBundleFactory> factory;
+  TF_ASSERT_OK(CaffeSessionBundleFactory::Create(config, &factory));
+
+  ResourceAllocation got;
+  TF_ASSERT_OK(factory->EstimateResourceRequirement(export_dir_, &got));
+  EXPECT_THAT(got, EqualsProto(want));
+}
 
 }  // namespace
 }  // namespace serving

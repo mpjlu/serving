@@ -26,7 +26,6 @@ limitations under the License.
 namespace tensorflow {
 namespace serving {
 
-
 class CaffeSourceAdapter
     : public UnarySourceAdapter<StoragePath, std::unique_ptr<Loader>> {
  public:
@@ -51,8 +50,6 @@ class CaffeSourceAdapter
 
   TF_DISALLOW_COPY_AND_ASSIGN(CaffeSourceAdapter);
 };
-
-
 
 }  // namespace serving
 }  // namespace tensorflow
