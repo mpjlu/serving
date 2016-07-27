@@ -106,7 +106,7 @@ Status RunRestoreOp(const StringPiece export_dir,
   }
 }
 
-}  // namespace
+} // namespace
 
 tensorflow::Status LoadSessionBundleFromPath(
     const CaffeSessionOptions& options,
@@ -114,7 +114,7 @@ tensorflow::Status LoadSessionBundleFromPath(
     CaffeSessionBundle* bundle)
 {
   LOG(INFO) << "Attempting to load a SessionBundle from: " << export_dir;
-  
+
   // load model prototxt
   TF_RETURN_IF_ERROR(
       GetGraphDefFromExport(export_dir, &(bundle->meta_graph_def.model_def)));

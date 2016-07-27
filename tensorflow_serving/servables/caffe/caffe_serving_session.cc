@@ -31,6 +31,9 @@
 
 namespace tensorflow {
 namespace serving {
+namespace {
+
+std::unique_ptr<CaffeSessionOptions> default_session_opts_ptr;
 
 // Constructs a flat tensor with 'vals'.
 template <typename T>
@@ -76,26 +79,62 @@ void GetGPUs(std::vector<int>* gpus) {
 #endif
 }
 
-bool TryAssignGPU()
-{
+bool TryAssignGPU(const int force_device_id,
+                  int& device_id) {
+
+  using namespace caffe;
+
   std::vector<int> gpus;
   GetGPUs(&gpus);
 
   if (gpus.size() != 0) {
-    caffe::Caffe::SetDevice(gpus[0]);
-    caffe::Caffe::set_mode(caffe::Caffe::GPU);
-    return true;
+    if (force_device_id >= 0) {
+      if (std::find(gpus.begin(), gpus.end(), force_device_id) != gpus.end()) {
+        device_id = force_device_id;
+        Caffe::SetDevice(force_device_id);
+        Caffe::set_mode(Caffe::GPU);
+        return true;
+      }
+    }
+    else {
+      device_id = gpus[0];
+      Caffe::SetDevice(gpus[0]);
+      Caffe::set_mode(Caffe::GPU);
+      return true;
+    }
   }
-  else {
-    // tensorflow serving is a multi-threaded application;
-    // avoid using multi-threaded OpenBLAS for now since this
-    // is quite likely to cause problems when executing
-    // caffe::forward(..) within a critical section
-    // (and could lead to deadlock).
-    openblas_set_num_threads(1);
-    caffe::Caffe::set_mode(caffe::Caffe::CPU);
-    return false;
+  return false;
+}
+
+void AssignCPU() {
+  // TFS is a multi-threaded application;
+  // avoid using multi-threaded, fork-based OpenBLAS
+  // since this is quite likely to cause problems executing
+  // caffe::forward(..) within a critical section
+  // (and could lead to deadlocks).
+  openblas_set_num_threads(1);
+  caffe::Caffe::set_mode(caffe::Caffe::CPU);
+}
+
+} // namespace
+
+CaffeSessionOptions::CaffeSessionOptions()
+  : CaffeSessionOptions(false) {
+}
+
+CaffeSessionOptions::CaffeSessionOptions(bool inherit_defaults)
+  : force_cpu_only{ inherit_defaults ?
+      CaffeSessionOptions::defaults().force_cpu_only : false }
+
+  , force_gpu_id{ inherit_defaults ?
+      CaffeSessionOptions::defaults().force_gpu_id : -1 } {
+}
+
+CaffeSessionOptions& CaffeSessionOptions::defaults() {
+  if (!default_session_opts_ptr) {
+    default_session_opts_ptr.reset(new CaffeSessionOptions());
   }
+  return *default_session_opts_ptr;
 }
 
 CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
@@ -105,20 +144,27 @@ CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
     , batch_size_{ 0 }
     , ts_()
 {
-  bool is_gpu = ts_.run(
+  int dev_id = ts_.run(
     [](std::unique_ptr<caffe::Net<float>>* net,
-       const caffe::NetParameter* graph)
+       const caffe::NetParameter* graph,
+       const CaffeSessionOptions* opts)
     {
-      bool is_gpu = TryAssignGPU();
+      int dev_id = -1;
+      bool success = !(opts->force_cpu_only) ?
+        TryAssignGPU(opts->force_gpu_id, dev_id) : false;
+
+      if (!success) { AssignCPU(); }
+
       net->reset(new caffe::Net<float>(*graph));
-      return is_gpu;
+      return dev_id;
     },
     &net_,
-    &graph.model_def);
+    &graph.model_def,
+    &opts);
 
-  LOG(INFO) << "Caffe execution mode: " <<
-    (is_gpu ? "GPU" : "CPU");
-
+  LOG(INFO)
+    << "Caffe execution mode: "
+    << (dev_id >= 0 ? strings::StrCat("GPU (device id: ", dev_id, ")" ) : "CPU");
   {
     // map blob names to indices
     const std::vector<string>& blobs = net_->blob_names();
@@ -233,7 +279,8 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     net_.get());
 }
 
-Status CaffeServingSession::OutputClassLabels(std::vector<Tensor>* outputs)
+Status CaffeServingSession::OutputClassLabels(
+    std::vector<Tensor>* outputs)
 {
   if (class_labels_ == nullptr) {
     return errors::InvalidArgument(
@@ -243,7 +290,8 @@ Status CaffeServingSession::OutputClassLabels(std::vector<Tensor>* outputs)
   return Status::OK();
 }
 
-Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(const string trained_filename)
+Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(
+    const string trained_filename)
 {
   caffe::NetParameter param;
 

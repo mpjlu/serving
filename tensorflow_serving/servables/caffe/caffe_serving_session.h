@@ -31,8 +31,18 @@ template<class T> class Net;
 namespace tensorflow {
 namespace serving {
 
-// No session options for Caffe
-struct CaffeSessionOptions {};
+struct CaffeSessionOptions {
+  // force cpu-only mode, even when configured for GPU.
+  bool force_cpu_only;
+  // force the use of a particular gpu for this session.
+  int force_gpu_id;
+
+  CaffeSessionOptions();
+  CaffeSessionOptions(bool inherit_defaults);
+
+  // override default options for all sessions
+  static CaffeSessionOptions& defaults();
+};
 
 // caffe model definition and class labels,
 // and computed inputs and outputs
