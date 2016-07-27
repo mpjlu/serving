@@ -92,6 +92,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
             inputs: 1
             outputs: 1
             initial batch-size: 1
+            output classes: Tensor<type: string shape: [10] values: Zero One Two...>
         I Running restore op for CaffeSessionBundle
         I Done loading SessionBundle
         I Wrapping SessionBundle session to perform batch processing
