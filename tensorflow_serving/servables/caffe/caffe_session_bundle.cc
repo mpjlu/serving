@@ -114,6 +114,7 @@ tensorflow::Status LoadSessionBundleFromPath(
     CaffeSessionBundle* bundle)
 {
   LOG(INFO) << "Attempting to load a SessionBundle from: " << export_dir;
+  
   // load model prototxt
   TF_RETURN_IF_ERROR(
       GetGraphDefFromExport(export_dir, &(bundle->meta_graph_def.model_def)));
@@ -127,12 +128,10 @@ tensorflow::Status LoadSessionBundleFromPath(
       ::caffe::ResolveNetInsOuts(bundle->meta_graph_def.model_def,
                                  bundle->meta_graph_def.resolved_inputs,
                                  bundle->meta_graph_def.resolved_outputs));
-
   // initialize network
-  const CaffeMetaGraphDef& graph_def = bundle->meta_graph_def;
   std::unique_ptr<CaffeServingSession> caffe_session;
   TF_RETURN_IF_ERROR(
-      CreateSessionFromGraphDef(options, graph_def, &caffe_session));
+      CreateSessionFromGraphDef(options, bundle->meta_graph_def, &caffe_session));
 
   // load weights
   TF_RETURN_IF_ERROR(
