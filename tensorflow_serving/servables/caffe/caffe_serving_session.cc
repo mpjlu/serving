@@ -226,7 +226,7 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     }
   }
 
-  if (batch_size_ < batch_size) {
+  if (batch_size_ != batch_size) {
     TF_RETURN_IF_ERROR(Reshape(batch_size));
   }
 
