@@ -38,10 +38,6 @@ struct CaffeSessionOptions {
   int force_gpu_id;
 
   CaffeSessionOptions();
-  CaffeSessionOptions(bool inherit_defaults);
-
-  // override default options for all sessions
-  static CaffeSessionOptions& defaults();
 };
 
 // caffe model definition and class labels,

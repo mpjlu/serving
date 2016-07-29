@@ -119,22 +119,8 @@ void AssignCPU() {
 } // namespace
 
 CaffeSessionOptions::CaffeSessionOptions()
-  : CaffeSessionOptions(false) {
-}
-
-CaffeSessionOptions::CaffeSessionOptions(bool inherit_defaults)
-  : force_cpu_only{ inherit_defaults ?
-      CaffeSessionOptions::defaults().force_cpu_only : false }
-
-  , force_gpu_id{ inherit_defaults ?
-      CaffeSessionOptions::defaults().force_gpu_id : -1 } {
-}
-
-CaffeSessionOptions& CaffeSessionOptions::defaults() {
-  if (!default_session_opts_ptr) {
-    default_session_opts_ptr.reset(new CaffeSessionOptions());
-  }
-  return *default_session_opts_ptr;
+  : force_cpu_only{ false }
+  , force_gpu_id{ -1 } {
 }
 
 CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
