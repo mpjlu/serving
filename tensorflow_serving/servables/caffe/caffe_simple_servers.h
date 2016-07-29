@@ -29,6 +29,8 @@ limitations under the License.
 #include "tensorflow_serving/core/storage_path.h"
 #include "tensorflow_serving/core/target.h"
 
+#include "tensorflow_serving/servables/caffe/caffe_source_adapter.pb.h"
+
 namespace tensorflow {
 namespace serving {
 namespace simple_servers {
@@ -47,7 +49,13 @@ namespace simple_servers {
 // loading the new version. This is preferable from a resource utilization
 // perspective, but has reduced availability.
 Status CreateSingleCaffeModelManagerFromBasePath(
-    const string& base_path, std::unique_ptr<Manager>* manager);
+    const string& base_path,
+    std::unique_ptr<Manager>* manager);
+
+Status CreateSingleCaffeModelManagerFromBasePath(
+    const string& base_path,
+    const CaffeSourceAdapterConfig& source_adapter_config,
+    std::unique_ptr<Manager>* manager);
 
 }  // namespace simple_servers
 }  // namespace serving

@@ -31,6 +31,8 @@ namespace {
 
 CaffeSessionOptions GetSessionOptions(const CaffeSessionBundleConfig& config) {
   CaffeSessionOptions options;
+  options.force_cpu_only = config.force_cpu_only();
+  options.force_gpu_id = config.force_gpu_id();
   return options;
 }
 
@@ -114,7 +116,9 @@ Status CaffeSessionBundleFactory::CreateSessionBundle(
 
 CaffeSessionBundleFactory::CaffeSessionBundleFactory(
     const CaffeSessionBundleConfig& config, std::shared_ptr<Batcher> batch_scheduler)
-    : config_(config), batch_scheduler_(batch_scheduler) {}
+  : config_(config)
+  , batch_scheduler_(batch_scheduler) {
+}
 
 Status CaffeSessionBundleFactory::WrapSessionForBatching(CaffeSessionBundle* bundle) 
 {

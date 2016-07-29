@@ -6,15 +6,14 @@ import "tensorflow_serving/servables/tensorflow/session_bundle_config.proto";
 package tensorflow.serving;
 
 // Configuration parameters for a Caffe SessionBundle, with optional batching.
-// Note; Caffe doesn't have the concept of a session bungle (a collection of 
-// graphs). These Configuration settings are a minimal subset of the TF 
-// SessionBundle configuration options.
+// Note; Caffe doesn't have the concept of a session bungle (a collection of
+// graphs).
 message CaffeSessionBundleConfig {
-  // Map from device type name (e.g., "CPU" or "GPU" ) to maximum
-  // number of devices of that type to use.  If a particular device
-  // type is not found in the map, the system picks an appropriate
-  // number.
-  map<string, int32> device_count = 2;
+  // Force Caffe to execute in CPU-only mode
+  bool force_cpu_only = 1;
+
+  // Force Caffe to use a particular GPU, if any.
+  int32 force_gpu_id = 2;
 
   // If set, each emitted session is wrapped with a layer that schedules Run()
   // calls in batches. The batching layer is transparent to the client
