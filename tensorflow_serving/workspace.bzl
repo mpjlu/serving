@@ -1,8 +1,6 @@
 # TensorFlow Serving external dependencies that can be loaded in WORKSPACE
 # files.
 
-load('//tensorflow/tensorflow:workspace.bzl', 'tf_workspace')
-
 # All TensorFlow Serving external dependencies.
 # workspace_dir is the absolute path to the TensorFlow Serving repo. If linked
 # as a submodule, it'll likely be '__workspace_dir__ + "/serving"'
@@ -17,8 +15,6 @@ def tf_serving_workspace(workspace_dir):
     path = workspace_dir + "/tf_models/inception",
   )
 
-  tf_workspace("tensorflow/", "@org_tensorflow")
-
   # ===== gRPC dependencies =====
   native.bind(
     name = "libssl",
@@ -31,7 +27,6 @@ def tf_serving_workspace(workspace_dir):
   )
 
   # ===== caffe dependencies =====
-
   native.bind(
     name = "caffe",
     actual = "@caffe_git//:caffe",
