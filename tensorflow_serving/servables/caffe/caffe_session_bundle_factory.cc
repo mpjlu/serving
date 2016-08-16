@@ -21,6 +21,7 @@ limitations under the License.
 #include "tensorflow/core/platform/regexp.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow_serving/resources/resource_values.h"
+#include "tensorflow_serving/servables/caffe/caffe_py_util.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_config.pb.h"
 
@@ -43,7 +44,7 @@ constexpr int CaffeSessionBundleFactory::kResourceEstimateRAMPadBytes;
 
 Status CaffeSessionBundleFactory::Create(
     const CaffeSessionBundleConfig& config,
-    std::unique_ptr<CaffeSessionBundleFactory>* factory) 
+    std::unique_ptr<CaffeSessionBundleFactory>* factory)
 {
   std::shared_ptr<Batcher> batcher;
   // Populate 'batcher' if batching is configured.
@@ -60,8 +61,7 @@ Status CaffeSessionBundleFactory::Create(
       if (last_allowed_size != max_size) {
         return errors::InvalidArgument(
             "Last entry in allowed_batch_sizes must match max_batch_size; last "
-            "entry was ",
-            last_allowed_size, "; expected ", max_size);
+            "entry was ", last_allowed_size, "; expected ", max_size);
       }
     }
 
@@ -79,7 +79,7 @@ Status CaffeSessionBundleFactory::Create(
 }
 
 Status CaffeSessionBundleFactory::EstimateResourceRequirement(
-    const string& path, ResourceAllocation* estimate) const 
+    const string& path, ResourceAllocation* estimate) const
 {
   const string file_path = io::JoinPath(path, kVariablesFilename);
   if (!Env::Default()->FileExists(file_path)) {
@@ -102,9 +102,20 @@ Status CaffeSessionBundleFactory::EstimateResourceRequirement(
 }
 
 Status CaffeSessionBundleFactory::CreateSessionBundle(
-    const string& path, 
-    std::unique_ptr<CaffeSessionBundle>* bundle) 
+    const string& path,
+    std::unique_ptr<CaffeSessionBundle>* bundle)
 {
+  // py-caffe initialization
+  if (this->config_.enable_py_caffe()) {
+    if (!IsPyCaffeAvailable()) {
+      return errors::Internal("PyCaffe requested but is unavilable.");
+    }
+    TF_RETURN_IF_ERROR(EnsurePyCaffeInitialized());
+    for (const string& path : this->config_.python_path()) {
+      TF_RETURN_IF_ERROR(EnsurePyCaffeSystemPath(path));
+    }
+  }
+
   bundle->reset(new CaffeSessionBundle);
   TF_RETURN_IF_ERROR(LoadSessionBundleFromPath(GetSessionOptions(this->config_),
                                                path, bundle->get()));
@@ -120,7 +131,7 @@ CaffeSessionBundleFactory::CaffeSessionBundleFactory(
   , batch_scheduler_(batch_scheduler) {
 }
 
-Status CaffeSessionBundleFactory::WrapSessionForBatching(CaffeSessionBundle* bundle) 
+Status CaffeSessionBundleFactory::WrapSessionForBatching(CaffeSessionBundle* bundle)
 {
   LOG(INFO) << "Wrapping SessionBundle session to perform batch processing";
 

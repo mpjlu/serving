@@ -62,7 +62,7 @@ class CaffeSourceAdapterTest : public ::testing::Test {
     ServableData<std::unique_ptr<Loader>> loader_data =
         test_util::RunSourceAdapter(export_dir_, adapter.get());
     TF_ASSERT_OK(loader_data.status());
-    
+
     std::unique_ptr<Loader> loader = loader_data.ConsumeDataOrDie();
 
     // We should get a non-empty resource estimate, and we should get the same
@@ -70,7 +70,7 @@ class CaffeSourceAdapterTest : public ::testing::Test {
     ResourceAllocation first_resource_estimate;
     TF_ASSERT_OK(loader->EstimateResources(&first_resource_estimate));
     EXPECT_FALSE(first_resource_estimate.resource_quantities().empty());
-    
+
     ResourceAllocation second_resource_estimate;
     TF_ASSERT_OK(loader->EstimateResources(&second_resource_estimate));
     EXPECT_THAT(second_resource_estimate, EqualsProto(first_resource_estimate));

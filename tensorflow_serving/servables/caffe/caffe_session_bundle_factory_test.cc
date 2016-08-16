@@ -26,8 +26,6 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "caffe/blob.hpp"
-
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/framework/tensor_testutil.h"
 #include "tensorflow/core/lib/core/status_test_util.h"

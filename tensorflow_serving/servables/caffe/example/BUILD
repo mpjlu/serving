@@ -1,25 +1,7 @@
-
-
-# Description: Tensorflow Serving session_bundle example.
+# Tensorflow Serving Caffe session_bundle example.
 
 package(
     default_visibility = ["//tensorflow_serving:internal"],
-)
-
-licenses(["notice"])  # Apache 2.0
-
-exports_files(["LICENSE"])
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-            "g3doc/sitemap.md",
-        ],
-    ),
 )
 
 py_binary(

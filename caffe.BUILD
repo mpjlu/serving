@@ -1,4 +1,6 @@
 load("@caffe_tools//:cuda.bzl", "if_cuda")
+load("@caffe_tools//:config.bzl", "if_pycaffe")
+
 load("@org_tensorflow//third_party/gpus/cuda:platform.bzl",
      "cuda_sdk_version",
      "cudnn_library_path",
@@ -12,6 +14,23 @@ genquery(
     expression = "@protobuf//:protobuf_lite",
     scope = ["@protobuf//:protobuf_lite"],
     opts = ["--output=location"]
+)
+
+genrule(
+    name = "pycaffe",
+    srcs = [
+        "python/caffe/pycaffe.py",
+        "@caffe_tools//:pycaffe_overrides"
+    ],
+    outs = [
+        "py/caffe/__init__.py",
+        "py/caffe/pycaffe.py"
+    ],
+    cmd =
+        '''
+        outdir=$(@D)/py/caffe
+        mkdir -p $$outdir
+        cp $(SRCS) $$outdir'''
 )
 
 genrule(
@@ -30,6 +49,8 @@ genrule(
         "lib/libcaffe.a",
         "lib/libproto.a",
         "include/caffe/proto/caffe.pb.h",
+        # pycaffe
+        "lib/_caffe.cpp.o",
         # openblas
         "lib/libopenblas.so.0",
         "include/cblas.h",
@@ -55,7 +76,11 @@ genrule(
                               -DUSE_CUDNN:bool=ON
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
                               -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_library_path(),
-            '''extra_cmake_opts="-DCPU_ONLY:bool=ON";''') +
+
+            'extra_cmake_opts="-DCPU_ONLY:bool=ON";') +
+
+        # python layers
+        if_pycaffe('py_layer=ON;', 'py_layer=OFF;') +
 
         # configure cmake.
         '''
@@ -64,8 +89,8 @@ genrule(
             -DCMAKE_INSTALL_PREFIX=$$srcdir/$(@D) \
             -DCMAKE_BUILD_TYPE=Release            \
             -DBLAS:string="open"                  \
-            -DBUILD_python=OFF                    \
-            -DBUILD_python_layer=OFF              \
+            -DBUILD_python=$$py_layer             \
+            -DBUILD_python_layer=$$py_layer       \
             -DUSE_OPENCV=OFF                      \
             -DBUILD_SHARED_LIBS=OFF               \
             -DUSE_LEVELDB=OFF                     \
@@ -81,9 +106,15 @@ genrule(
         # protobuf_lite.a (and not libprotobuf.so) is
         # specified in PROTOBUF_LIBRARY.
         '''
-        cmake --build . --target caffe -- -j 4;
+        cmake --build . --target caffe -- -j 4
         cp -r ./lib $$outdir
-        cp -r ./include $$outdir ''' +
+        cp -r ./include $$outdir; ''' +
+
+        if_pycaffe('''
+            cmake --build . --target pycaffe
+            cp ./python/CMakeFiles/pycaffe.dir/caffe/_caffe.cpp.o $$outdir/lib; ''', '''
+            touch $$outdir/lib/_caffe.cpp.o; '''
+        ) +
 
         # openblas (note the full soname is libopenblas.so.0)
         '''
@@ -94,10 +125,10 @@ genrule(
         cp $$openblas_incl/cblas.h $$outdir/include
         touch $$outdir/include/openblas_config.h ''' +
 
-        # clean up
         '''
+        # clean up
         popd;
-        rm -rf $$workdir; ''',
+        # rm -rf $$workdir; ''',
 )
 
 genrule(
@@ -129,10 +160,12 @@ genrule(
     cmd = '''
         workdir=$$(mktemp -d -t tmp.XXXXXXXXXX);
         cp $(location :lib/libcaffe.a) $$workdir;
+
         pushd $$workdir;
         ar x libcaffe.a;
         ld -r -o libcaffe-layers.o $$(echo layer_factory.cpp.o *_layer.*.o);
         popd;
+
         cp $$workdir/libcaffe-layers.o $(@D)/;
         rm -rf $$workdir;
         ''',
@@ -155,8 +188,21 @@ cc_library(
 
 cc_library(
     name = "caffe",
-    srcs = [":caffe-extract", "lib/libcaffe.a", "lib/libproto.a"],
+    includes = ["include/"],
+    srcs = [
+        ":caffe-extract",
+        "lib/libcaffe.a",
+        "lib/libproto.a"
+    ] + if_pycaffe([
+        "lib/_caffe.cpp.o"
+    ]),
     hdrs = glob(["include/**"]) + ["include/caffe/proto/caffe.pb.h"],
+    defines = if_cuda(
+        ["USE_CUDNN"],
+        ["CPU_ONLY"]
+    ) + if_pycaffe(
+        ["WITH_PYTHON_LAYER"]
+    ),
     deps = if_cuda([
         "@org_tensorflow//third_party/gpus/cuda:cudnn",
         "@org_tensorflow//third_party/gpus/cuda:cublas",
@@ -165,8 +211,6 @@ cc_library(
         "@protobuf//:protobuf",
         ":openblas",
     ],
-    includes = ["include/"],
-    defines = if_cuda(["USE_CUDNN"], ["CPU_ONLY"]),
     linkopts = [
         "-L/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
         "-Wl,-rpath,/usr/local/lib:/usr/lib/x86_64-linux-gnu/hdf5/serial/lib",
@@ -181,7 +225,11 @@ cc_library(
         "-lz",
         "-ldl",
         "-lm",
-    ],
+    ] + if_pycaffe([
+        "-lpython2.7",
+        "-lboost_python"
+    ]),
+    data = if_pycaffe([":pycaffe"]),
     visibility = ["//visibility:public"],
     alwayslink = 1,
     linkstatic = 1,

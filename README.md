@@ -1,4 +1,4 @@
-#TensorFlow Serving + Caffe
+# TensorFlow Serving + Caffe
 
 __This is a fork of Tensorflow Serving (TFS), extended with support for the
 [Caffe](http://caffe.berkeleyvision.org/) deep learning framework.
@@ -28,14 +28,11 @@ first. At a minimum you need to install bazel and configure Tensorflow
 (`cd tensorflow; ./configure`).
 
 Next, you will need to install the Caffe prerequisites on your system. For a comprehensive guide, see the [Caffe Installation guide](http://caffe.berkeleyvision.org/installation.html#prerequisites). At a minimum, you
-will need the following:
+will need the following packages (Ubuntu):
 
-- `CMake >= 2.8.12`
-- `Boost { system thread filesystem } >= 1.55`
-- `OpenBLAS`
-- `gflags`
-- `glog`
-- `HDF5`
+- `g++ binutils cmake`
+- `libboost-thread-dev libboost-system-dev libboost-filesystem-dev`
+- `libgflags-dev libgoogle-glog-dev libhdf5-dev`
 
 __Note:__ installing protobuf is not required; the build will adopt the protobuf package from Tensorflow.
 
@@ -43,6 +40,17 @@ To validate the Caffe build, run the following bazel command. This will retrieve
 from Github and build Caffe in cpu mode:
 
     > bazel build -c opt //external:caffe
+
+### Python Layers (optional)
+
+Caffe [Python layers](https://github.com/NVIDIA/DIGITS/tree/master/examples/python-layer) (the `Python` layer type) can be used to execute parts of a model within Python. To work correctly, you should have Python installed on your system. In addition you'll need to install the following packages (Ubuntu):
+
+- `libpython-dev libboost-python-dev`
+
+The python layer is enabled at build-time with the `--define=caffe_python_layer=ON` option. For example, to run a test which demonstrates the use the python layers:
+
+    > bazel test --define=caffe_python_layer=ON \
+        //tensorflow_serving/servables/caffe:caffe_session_bundle_factory_test_py
 
 ### GPU Support (optional, linux only)
 

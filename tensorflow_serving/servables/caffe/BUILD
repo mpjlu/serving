@@ -8,22 +8,6 @@ package(
     ],
 )
 
-licenses(["notice"])  # Apache 2.0
-
-exports_files(["LICENSE"])
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-            "g3doc/sitemap.md",
-        ],
-    ),
-)
-
 load("//tensorflow_serving:serving.bzl", "serving_proto_library")
 
 serving_proto_library(
@@ -49,6 +33,17 @@ serving_proto_library(
     ],
     deps = [
         ":caffe_session_bundle_config_proto",
+    ],
+)
+
+cc_library(
+    name = "caffe_py_util",
+    srcs = ["caffe_py_util.cc"],
+    hdrs = ["caffe_py_util.h"],
+    deps = [
+        "//external:caffe",
+        "@caffe_tools//:python_prelude",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -112,6 +107,7 @@ cc_library(
         ":caffe_session_bundle_config_proto",
         ":caffe_session_bundle",
         ":caffe_serving_session",
+        ":caffe_py_util",
         "//tensorflow_serving/batching:batching_session",
         "//tensorflow_serving/batching:shared_batch_scheduler",
         "//tensorflow_serving/resources:resource_values",
@@ -124,8 +120,25 @@ cc_test(
     srcs = ["caffe_session_bundle_factory_test.cc"],
     data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
     deps = [
-        "//external:caffe",
         "//tensorflow_serving/servables/caffe/example:mnist_sample",
+        "@protobuf//:cc_wkt_protos",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:tensorflow",
+        "@org_tensorflow//tensorflow/core:test",
+        "@org_tensorflow//tensorflow/core:testlib",
+        ":caffe_session_bundle_config_proto",
+        ":caffe_session_bundle_factory",
+        "//tensorflow_serving/core/test_util:test_main",
+        "//tensorflow_serving/resources:resource_values",
+        "//tensorflow_serving/test_util",
+    ],
+)
+
+cc_test(
+    name = "caffe_session_bundle_factory_test_py",
+    srcs = ["caffe_session_bundle_factory_test_py.cc"],
+    data = ["//tensorflow_serving/servables/caffe/test_data:py_layers"],
+    deps = [
         "@protobuf//:cc_wkt_protos",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -174,7 +187,7 @@ cc_test(
         "//tensorflow_serving/resources:resource_values",
         "//tensorflow_serving/test_util",
         "//tensorflow_serving/util:any_ptr",
-    ]
+    ],
 )
 
 cc_library(
@@ -202,14 +215,13 @@ cc_library(
         "//tensorflow_serving/sources/storage_path:file_system_storage_path_source_proto",
     ],
 )
- 
+
 cc_test(
     name = "caffe_simple_servers_test",
     srcs = ["caffe_simple_servers_test.cc"],
     data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
     linkstatic = 1,
     deps = [
-        #"@org_tensorflow//tensorflow/core:core_cpu",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -223,4 +235,3 @@ cc_test(
         "//tensorflow_serving/util:unique_ptr_with_deps",
     ],
 )
-
