@@ -9,6 +9,7 @@ package(
 )
 
 load("//tensorflow_serving:serving.bzl", "serving_proto_library")
+load("@caffe_tools//:config.bzl", "if_pycaffe")
 
 serving_proto_library(
     name = "caffe_session_bundle_config_proto",
@@ -41,10 +42,13 @@ cc_library(
     srcs = ["caffe_py_util.cc"],
     hdrs = ["caffe_py_util.h"],
     deps = [
-        "//external:caffe",
+        "@caffe//:lib",
         "@caffe_tools//:python_prelude",
         "@org_tensorflow//tensorflow/core:lib",
     ],
+    data = if_pycaffe([
+        "@caffe//:pycaffe"
+    ])
 )
 
 cc_library(
@@ -87,7 +91,7 @@ cc_library(
     srcs = ["caffe_serving_session.cc"],
     hdrs = ["caffe_serving_session.h"],
     deps = [
-        "//external:caffe",
+        "@caffe//:lib",
         "@caffe_tools//:openblas_prelude",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -137,7 +141,9 @@ cc_test(
 cc_test(
     name = "caffe_session_bundle_factory_test_py",
     srcs = ["caffe_session_bundle_factory_test_py.cc"],
-    data = ["//tensorflow_serving/servables/caffe/test_data:py_layers"],
+    data = [
+        "//tensorflow_serving/servables/caffe/test_data:py_layers",
+    ],
     deps = [
         "@protobuf//:cc_wkt_protos",
         "@org_tensorflow//tensorflow/core:lib",

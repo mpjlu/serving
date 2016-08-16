@@ -31,7 +31,7 @@ namespace {
 using test_util::EqualsProto;
 
 inline string TestPyDirPath() {
-  return tensorflow::io::JoinPath(getenv("TEST_SRCDIR"), "caffe_git/py");
+  return tensorflow::io::JoinPath(getenv("TEST_SRCDIR"), "caffe/py");
 }
 
 class CaffeSessionBundleFactoryPyTest : public ::testing::Test {
@@ -39,8 +39,7 @@ class CaffeSessionBundleFactoryPyTest : public ::testing::Test {
   CaffeSessionBundleFactoryPyTest()
       : export_dir_(test_util::TestSrcDirPath(
           "servables/caffe/test_data/py_layers/00000001"))
-      , input_sample_(0)
-  {
+      , input_sample_(0) {
     input_sample_.resize(9 * 8, 7.0);
   }
 

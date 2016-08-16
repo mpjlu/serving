@@ -39,7 +39,7 @@ __Note:__ installing protobuf is not required; the build will adopt the protobuf
 To validate the Caffe build, run the following bazel command. This will retrieve Caffe
 from Github and build Caffe in cpu mode:
 
-    > bazel build -c opt //external:caffe
+    > bazel build -c opt @caffe//:lib
 
 ### Python Layers (optional)
 
@@ -56,7 +56,7 @@ The python layer is enabled at build-time with the `--define=caffe_python_layer=
 
 The Caffe build adopts the CUDA configuration from Tensorflow, and as such will use the version (and location) of cudnn, and the standard cuda libraries you specified when you configured Tensorflow. You can validate this configuration by building Caffe with CUDA:
 
-    > bazel build -c opt --config=cuda //external:caffe
+    > bazel build -c opt --config=cuda @caffe//:lib
 
 For more information on installing the CUDA libraries and configuring Tensorflow, read
 the Tensorflow setup guide [here](https://www.tensorflow.org/versions/r0.8/get_started/os_setup.html#optional-install-cuda-gpus-on-linux).

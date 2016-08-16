@@ -13,7 +13,7 @@ There are two important differences:
 
   2. This package only exposes a subset of pycaffe to get python layers
      working correctly. Other parts of pycaffe, including those that
-     import multiprocessing, are not guaranteed to work. '''
+     ultimately import multiprocessing, are not guaranteed to work. '''
 
 import sys
 

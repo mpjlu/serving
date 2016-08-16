@@ -86,7 +86,7 @@ genrule(
         # configure cmake.
         '''
         pushd $$workdir;
-        cmake $$srcdir/external/caffe_git         \
+        cmake $$srcdir/external/caffe             \
             -DCMAKE_INSTALL_PREFIX=$$srcdir/$(@D) \
             -DCMAKE_BUILD_TYPE=Release            \
             -DBLAS:string="open"                  \
@@ -187,7 +187,7 @@ cc_library(
 )
 
 cc_library(
-    name = "caffe",
+    name = "lib",
     includes = ["include/"],
     srcs = [
         ":caffe-extract",
@@ -229,7 +229,6 @@ cc_library(
         "-lpython2.7",
         "-lboost_python"
     ]),
-    data = if_pycaffe([":pycaffe"]),
     visibility = ["//visibility:public"],
     alwayslink = 1,
     linkstatic = 1,

@@ -22,18 +22,13 @@ def tf_serving_workspace(workspace_dir):
   )
 
   native.bind(
-      name = "zlib",
-      actual = "@zlib_archive//:zlib",
+    name = "zlib",
+    actual = "@zlib_archive//:zlib",
   )
 
   # ===== caffe dependencies =====
-  native.bind(
-    name = "caffe",
-    actual = "@caffe_git//:caffe",
-  )
-
   native.new_git_repository(
-    name = "caffe_git",
+    name = "caffe",
     remote = "https://github.com/BVLC/caffe",
     commit = "50c9a0fc8eed0101657e9f8da164d88f66242aeb",
     init_submodules = True,
