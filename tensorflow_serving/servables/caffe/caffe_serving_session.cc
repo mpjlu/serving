@@ -9,7 +9,6 @@
 // note: this header resides in third_party/caffe
 #include "openblas_prelude.h"
 
-
 // avoid fp-16 redefinitions when using
 // a recent version of cuda
 #if CUDA_VERSION >= 7050
