@@ -9,6 +9,7 @@
 // note: this header resides in third_party/caffe
 #include "openblas_prelude.h"
 
+
 // avoid fp-16 redefinitions when using
 // a recent version of cuda
 #if CUDA_VERSION >= 7050
@@ -235,10 +236,13 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
         unsigned idx = it->second;
         std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
       }
+
       // execute
       net->Forward();
+
       // copy to output tensors
       outputs->clear();
+
       for (const string& out: output_tensor_names) {
         if (out == kClassLabelTensorName) {
           // class labels is a special case
@@ -252,11 +256,17 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
               "Specified network output '", out, "' does not exist.");
           }
           const caffe::Blob<float>& blob = *net_blobs[it->second];
-          // 2-D output
-          Tensor t = AsTensor<float>(
-            { blob.cpu_data(), batch_size * (unsigned long)blob.channels() },
-            { batch_size, blob.channels() });
+          const size_t ndims = blob.shape().size();
 
+          size_t num_elements = batch_size;
+          TensorShape shape{ batch_size };
+
+          for (size_t k = 1; k < ndims; ++k) {
+            shape.AddDim(blob.shape(k));
+            num_elements *= blob.shape(k);
+          }
+
+          Tensor t = AsTensor<float>({ blob.cpu_data(), num_elements }, shape);
           outputs->push_back(t);
         }
       }
