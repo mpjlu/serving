@@ -23,13 +23,15 @@ genrule(
     ],
     outs = [
         "py/caffe/__init__.py",
-        "py/caffe/pycaffe.py"
+        "py/caffe/pycaffe.py",
+        "py/caffe/io.py"
     ],
     cmd =
         '''
         outdir=$(@D)/py/caffe
         mkdir -p $$outdir
-        cp $(SRCS) $$outdir'''
+        cp $(SRCS) $$outdir
+        touch $$outdir/io.py'''
 )
 
 genrule(
