@@ -9,15 +9,13 @@ package(
 )
 
 load("//tensorflow_serving:serving.bzl", "serving_proto_library")
-load("@caffe_tools//:config.bzl", "if_pycaffe")
+load("@caffe_tools//:config.bzl", "if_pycaffe", "caffe_pkg")
 
 serving_proto_library(
     name = "caffe_session_bundle_config_proto",
     srcs = ["caffe_session_bundle_config.proto"],
     cc_api_version = 2,
-    visibility = [
-        "//visibility:public",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         "@protobuf//:cc_wkt_protos",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
@@ -29,26 +27,32 @@ serving_proto_library(
     name = "caffe_source_adapter_proto",
     srcs = ["caffe_source_adapter.proto"],
     cc_api_version = 2,
-    visibility = [
-        "//visibility:public",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         ":caffe_session_bundle_config_proto",
     ],
 )
 
+genrule(
+    name = "pycaffe",
+    srcs = caffe_pkg(":pycaffe"),
+    outs = ["pycaffe"],
+    cmd = '''
+        outdir=$(@D)/pycaffe/caffe
+        mkdir -p $$outdir
+        cp $(SRCS) $$outdir'''
+)
+
+
 cc_library(
     name = "caffe_py_util",
     srcs = ["caffe_py_util.cc"],
     hdrs = ["caffe_py_util.h"],
-    deps = [
-        "@caffe//:lib",
+    deps = caffe_pkg(":lib") + [
         "@caffe_tools//:python_prelude",
         "@org_tensorflow//tensorflow/core:lib",
     ],
-    data = if_pycaffe([
-        "@caffe//:pycaffe"
-    ])
+    data = if_pycaffe([":pycaffe"])
 )
 
 cc_library(
@@ -90,8 +94,7 @@ cc_library(
     name = "caffe_serving_session",
     srcs = ["caffe_serving_session.cc"],
     hdrs = ["caffe_serving_session.h"],
-    deps = [
-        "@caffe//:lib",
+    deps = caffe_pkg(":lib") + [
         "@caffe_tools//:openblas_prelude",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -141,9 +144,7 @@ cc_test(
 cc_test(
     name = "caffe_session_bundle_factory_test_py",
     srcs = ["caffe_session_bundle_factory_test_py.cc"],
-    data = [
-        "//tensorflow_serving/servables/caffe/test_data:py_layers",
-    ],
+    data = ["//tensorflow_serving/servables/caffe/test_data:py_layers"],
     deps = [
         "@protobuf//:cc_wkt_protos",
         "@org_tensorflow//tensorflow/core:lib",

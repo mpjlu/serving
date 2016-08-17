@@ -1,17 +1,19 @@
-config_setting(
-    name = "caffe_python_layer",
-    values = {
-        "define": "caffe_python_layer=ON"
-    },
-    visibility = ["//visibility:public"],
-)
-
 package(
     default_visibility = ["//visibility:public"],
     features = [
         "-layering_check",
         "-parse_headers",
     ],
+)
+
+config_setting(
+    name = "caffe_python_layer",
+    values = { "define": "caffe_python_layer=ON" },
+)
+
+config_setting(
+    name = "use_caffe_rcnn",
+    values = { "define": "caffe_flavour=rcnn" },
 )
 
 cc_library(

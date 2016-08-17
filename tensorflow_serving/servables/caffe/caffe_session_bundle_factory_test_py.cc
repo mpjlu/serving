@@ -31,7 +31,7 @@ namespace {
 using test_util::EqualsProto;
 
 inline string TestPyDirPath() {
-  return tensorflow::io::JoinPath(getenv("TEST_SRCDIR"), "caffe/py");
+  return test_util::TestSrcDirPath("servables/caffe/pycaffe");
 }
 
 class CaffeSessionBundleFactoryPyTest : public ::testing::Test {

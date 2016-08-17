@@ -35,6 +35,14 @@ def tf_serving_workspace(workspace_dir):
     build_file = workspace_dir + "/caffe.BUILD",
   )
 
+  native.new_git_repository(
+    name = "caffe_rcnn",
+    remote = "https://github.com/Austriker/caffe",
+    commit = "3c27a70ae7304feb48c60b268c70adf585879d50",
+    init_submodules = True,
+    build_file = workspace_dir + "/caffe.BUILD",
+  )
+
   native.local_repository(
     name = "caffe_tools",
     path = workspace_dir + "/third_party/caffe"

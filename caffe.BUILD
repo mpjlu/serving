@@ -22,16 +22,11 @@ genrule(
         "@caffe_tools//:pycaffe_overrides"
     ],
     outs = [
-        "py/caffe/__init__.py",
-        "py/caffe/pycaffe.py",
-        "py/caffe/io.py"
+        "__init__.py",
+        "pycaffe.py",
+        "io.py"
     ],
-    cmd =
-        '''
-        outdir=$(@D)/py/caffe
-        mkdir -p $$outdir
-        cp $(SRCS) $$outdir
-        touch $$outdir/io.py'''
+    cmd = "cp $(SRCS) $(@D); touch $(@D)/io.py;"
 )
 
 genrule(
@@ -42,6 +37,7 @@ genrule(
         "@org_tensorflow//third_party/gpus/cuda:" + cudnn_library_path()
     ]) + [
         ":protobuf-root",
+        ":CMakeLists.txt",
         "@protobuf//:protoc",
         "@protobuf//:protobuf_lite"
     ],
@@ -86,7 +82,7 @@ genrule(
         # configure cmake.
         '''
         pushd $$workdir;
-        cmake $$srcdir/external/caffe             \
+        cmake $$srcdir/$$(dirname $(location :CMakeLists.txt)) \
             -DCMAKE_INSTALL_PREFIX=$$srcdir/$(@D) \
             -DCMAKE_BUILD_TYPE=Release            \
             -DBLAS:string="open"                  \
