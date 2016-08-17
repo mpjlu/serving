@@ -47,7 +47,7 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
  protected:
   CaffeSessionBundleFactoryTest()
       : export_dir_(test_util::TestSrcDirPath(
-          "servables/caffe/example/mnist_pretrained_caffe/00000023")) {
+          "servables/caffe/test_data/mnist_pretrained_caffe/00000023")) {
     input_sample_ = mnist_sample_28x28();
   }
 

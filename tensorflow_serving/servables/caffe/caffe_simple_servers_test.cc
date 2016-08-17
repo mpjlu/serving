@@ -41,7 +41,7 @@ class SimpleServersTest : public ::testing::Test {
  protected:
   SimpleServersTest()
       : test_data_path_(test_util::TestSrcDirPath(
-          "servables/caffe/example/mnist_pretrained_caffe")) {
+          "servables/caffe/test_data/mnist_pretrained_caffe")) {
   }
 
   const string test_data_path_;

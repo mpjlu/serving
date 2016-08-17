@@ -48,7 +48,7 @@ class CaffeSourceAdapterTest : public ::testing::Test {
  protected:
   CaffeSourceAdapterTest()
       : export_dir_(test_util::TestSrcDirPath(
-          "servables/caffe/example/mnist_pretrained_caffe/00000023")) {}
+          "servables/caffe/test_data/mnist_pretrained_caffe/00000023")) {}
 
   // Test data path, to be initialized to point at an export of half-plus-two.
   const string export_dir_;

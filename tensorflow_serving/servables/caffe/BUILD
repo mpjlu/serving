@@ -125,9 +125,9 @@ cc_library(
 cc_test(
     name = "caffe_session_bundle_factory_test",
     srcs = ["caffe_session_bundle_factory_test.cc"],
-    data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
+    data = ["//tensorflow_serving/servables/caffe/test_data:mnist_pretrained_caffe"],
     deps = [
-        "//tensorflow_serving/servables/caffe/example:mnist_sample",
+        "//tensorflow_serving/servables/caffe/test_data:mnist_sample",
         "@protobuf//:cc_wkt_protos",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -181,7 +181,7 @@ cc_library(
 cc_test(
     name = "caffe_source_adapter_test",
     srcs = ["caffe_source_adapter_test.cc"],
-    data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
+    data = ["//tensorflow_serving/servables/caffe/test_data:mnist_pretrained_caffe"],
     deps = [
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
@@ -226,7 +226,7 @@ cc_library(
 cc_test(
     name = "caffe_simple_servers_test",
     srcs = ["caffe_simple_servers_test.cc"],
-    data = ["//tensorflow_serving/servables/caffe/example:mnist_pretrained_caffe"],
+    data = ["//tensorflow_serving/servables/caffe/test_data:mnist_pretrained_caffe"],
     linkstatic = 1,
     deps = [
         "@org_tensorflow//tensorflow/core:framework",
