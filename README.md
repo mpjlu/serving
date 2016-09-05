@@ -17,7 +17,7 @@ table.
 
 ## Setup, Build & test
 
-First, clone the repository and its submodules: 
+First, clone the repository and its submodules:
 
     > git clone --recurse-submodules https://github.com/rayglover-ibm/serving-caffe
     > cd serving-caffe
@@ -91,7 +91,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
 
     > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
     > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
-    
+
         I Backend set to Caffe
         I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
         I Caffe execution mode: CPU
@@ -116,7 +116,7 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
     > bazel build -c opt //tensorflow_serving/example:mnist_client
     > bazel-bin/tensorflow_serving/example/mnist_client \
         --num_tests=1000 --server=localhost:9000 --concurrency=10
-    
+
         Inference error rate: 1.2%
         Request error rate: 0.0%
         Avg. Throughput: 197.192047438 reqs/s
@@ -124,6 +124,21 @@ Select one of the two mnist services to build and run. Ideally, you should be fa
           50th ....... 46ms
           90th ....... 62ms
           99th ....... 83ms
+
+
+## *Faster* RCNN example
+
+(work in progress)
+
+    > bazel test --test_output=streamed --define=caffe_flavour=rcnn --define=caffe_python_layer=ON \
+        //tensorflow_serving/servables/caffe:caffe_session_bundle_factory_test_py
+
+    > bazel run //tensorflow_serving/example:rcnn_fetch -- /tmp/rcnn_data
+
+    > bazel run //tensorflow_serving/example:rcnn_setup -- --force /tmp/rcnn_data /tmp/rcnn_export
+
+    > bazel build --define=caffe_flavour=rcnn --define=caffe_python_layer=ON \
+        //tensorflow_serving/example:rcnn_detector
 
 
 ## FAQ
@@ -136,7 +151,7 @@ If you intend to use a fork of Caffe which contains (for example) custom layers,
 
 - The Caffe Servable is implemented in `serving/servables/caffe` and is based on the Tensorflow servable.
 
-- To be able to reuse as much of the TFS infastructure as possible (e.g. batching), and to be able to create server frontends which can be switched to/from Caffe and Tensorflow with minimum effort, the core Caffe servable, the `CaffeServingSession`, derives from the abstract `tensorflow::serving::ServingSession` class, essentially encapsulating the Caffe model as though it were a Tensorflow one.
+- To be able to reuse as much of the TFS infastructure as possible (e.g. batching), and to be able to create server frontends which can be switched to/from Caffe and Tensorflow with minimum effort, the core Caffe servable, `CaffeServingSession`, derives from the abstract `tensorflow::serving::ServingSession` class. This essentially encapsulates the Caffe model as though it were a Tensorflow one.
 
 ---
 

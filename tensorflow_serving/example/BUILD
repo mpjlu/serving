@@ -193,3 +193,59 @@ py_binary(
     ],
     deps = ["@org_tensorflow//tensorflow:tensorflow_py"],
 )
+
+
+#
+# faster-rcnn example
+#
+
+# Downloads a py-faster-rcnn repo from github
+py_binary(
+    name = "rcnn_fetch",
+    srcs = ["rcnn_fetch.py"],
+)
+
+py_binary(
+    name = "rcnn_setup",
+    srcs = ["rcnn_setup.py"],
+)
+
+serving_proto_library(
+    name = "rcnn_detector_proto",
+    srcs = ["rcnn_detector.proto"],
+    has_services = 1,
+    cc_api_version = 2,
+    cc_grpc_version = 1,
+)
+
+cc_binary(
+    name = "rcnn_detector",
+    srcs = ["rcnn_detector.cc", "rcnn_utils.cc", "rcnn_utils.h"],
+    linkopts = ["-lm"],
+    deps = [
+        "@grpc//:grpc++",
+        "@org_tensorflow//tensorflow/core:lib",
+        ":rcnn_detector_proto",
+        "//tensorflow_serving/batching:basic_batch_scheduler",
+        "//tensorflow_serving/batching:batch_scheduler",
+        "//tensorflow_serving/core:manager",
+        "//tensorflow_serving/core:servable_handle",
+        "//tensorflow_serving/core:servable_id",
+        "//tensorflow_serving/session_bundle:signature",
+        "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+        "//tensorflow_serving/servables/caffe:caffe_simple_servers",
+        "//tensorflow_serving/servables/caffe:caffe_signature",
+    ]
+)
+
+py_binary(
+    name = "rcnn_client",
+    srcs = [
+        "rcnn_client.py",
+        "rcnn_detector_pb2.py",
+    ],
+    deps = [
+        ":mnist_input_data",
+        "@org_tensorflow//tensorflow:tensorflow_py",
+    ],
+)
