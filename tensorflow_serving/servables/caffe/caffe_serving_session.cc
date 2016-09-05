@@ -16,6 +16,7 @@
 #endif
 
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
+#include "tensorflow_serving/servables/caffe/caffe_py_util.h"
 
 #include <memory>
 #include <string>
@@ -179,6 +180,8 @@ CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
                 class_labels_ == nullptr ?
                   "(none)" : class_labels_->DebugString()
               );
+
+
 }
 
 CaffeServingSession::~CaffeServingSession() = default;
@@ -212,6 +215,8 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
     }
   }
 
+  outputs->clear();
+
   if (batch_size_ != batch_size) {
     TF_RETURN_IF_ERROR(Reshape(batch_size));
   }
@@ -236,36 +241,59 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
         std::copy_n(view.data(), view.size(), net_blobs[idx]->mutable_cpu_data());
       }
 
-      // execute
-      net->Forward();
+      try {
+        // execute
+        net->Forward();
+      }
+      catch(const std::exception& ex) {
+        return errors::Internal(
+          "Caffe failed to execute the model: ", ex.what());
+      }
+      catch(...) {
+        // Boost.python thows a non-std std::exception;
+        // attempt to catch it here.
+        auto py_err = PythonStatus();
+        if (!py_err.ok())
+          return py_err;
+        else
+          return errors::Unknown(
+            "Caffe failed to execute the model");
+      }
 
       // copy to output tensors
-      outputs->clear();
-
       for (const string& out: output_tensor_names) {
         if (out == kClassLabelTensorName) {
           // class labels is a special case
           TF_RETURN_IF_ERROR(OutputClassLabels(outputs));
         }
         else {
+          caffe::Blob<float>* blob;
           // search the net for the relevant blob
           auto it = output_blob_map_.find(out);
           if (it == output_blob_map_.end()) {
-            return errors::InvalidArgument(
-              "Specified network output '", out, "' does not exist.");
+            // try and find an arbitary blob in the
+            // network of the same name
+            blob = net->blob_by_name(out).get();
+            if (blob == nullptr) {
+              return errors::InvalidArgument(
+                "Specified network output '", out, "' does not exist.");
+            }
           }
-          const caffe::Blob<float>& blob = *net_blobs[it->second];
-          const size_t ndims = blob.shape().size();
+          else {
+            blob = net_blobs[it->second].get();
+          }
+          const std::vector<int> shape = blob->shape();
+          size_t num_elements = shape[0];
+          TensorShape out_shape{ shape[0] };
 
-          size_t num_elements = batch_size;
-          TensorShape shape{ batch_size };
-
-          for (size_t k = 1; k < ndims; ++k) {
-            shape.AddDim(blob.shape(k));
-            num_elements *= blob.shape(k);
+          for (size_t k = 1; k < shape.size(); ++k) {
+            out_shape.AddDim(shape[k]);
+            num_elements *= shape[k];
           }
 
-          Tensor t = AsTensor<float>({ blob.cpu_data(), num_elements }, shape);
+          Tensor t = AsTensor<float>(
+            { blob->cpu_data(), num_elements },
+            out_shape);
           outputs->push_back(t);
         }
       }

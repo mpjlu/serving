@@ -53,7 +53,7 @@ class CaffeSessionBundleFactoryPyTest : public ::testing::Test {
     gtl::ArraySlice<float> input_slice(input_sample_);
 
     std::vector<std::pair<string, Tensor>> inputs {
-      {"data", test::AsTensor(input_slice, {1, 9, 8}) }
+      { "data", test::AsTensor(input_slice, {1, 9, 8}) }
     };
     std::vector<Tensor> outputs;
 

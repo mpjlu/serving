@@ -4,7 +4,7 @@
 
 #ifdef WITH_PYTHON_LAYER
 #  include "python_prelude.h"
-   // embedded python module initialization function
+   // embedded caffe python module initialization function
    extern "C" void init_caffe();
 #endif
 
@@ -23,11 +23,11 @@ bool IsPyCaffeAvailable() {
 
 tensorflow::Status EnsurePyCaffe() {
   if (!IsPyCaffeAvailable()) {
-  	return tensorflow::errors::Internal(
-  		"Python unavilable in this build configuration");
+    return tensorflow::errors::Internal(
+      "Python unavilable in this build configuration");
   }
   else {
-  	return Status::OK();
+    return Status::OK();
   }
 }
 
@@ -37,9 +37,9 @@ tensorflow::Status EnsurePyCaffeSystemPath(const string& path) {
 
 #ifdef WITH_PYTHON_LAYER
   auto statement = strings::StrCat(
-  	  "import sys\n",
-  	  "if not '", path, "' in sys.path: sys.path.append('", path, "')\n"
-  	  );
+      "import sys\n",
+      "if not '", path, "' in sys.path: sys.path.append('", path, "')\n"
+      );
 
   PyRun_SimpleString(statement.c_str());
 #endif
@@ -53,28 +53,40 @@ tensorflow::Status EnsurePyCaffeInitialized() {
 
   if (!initialized) {
 #ifdef WITH_PYTHON_LAYER
-  	LOG(INFO) << "Initializing Python:\n" << Py_GetVersion();
-  	// append the pythohn internal modules with py
-  	// the default module search path
-  	string path{ Py_GetPath() };
-  	// make the caffe module accessible as a builtin
-  	if (PyImport_AppendInittab("_caffe", &init_caffe) == -1) {
-  	  return tensorflow::errors::Internal("Failed to add PyCaffe builtin module");
-  	}
-  	// causes a fatal error if initilization fails :(
-  	Py_Initialize();
-  	// set sys.path to default search path.
-  	PySys_SetPath(path.c_str());
-  	// append site-specific paths to the module search path
-  	// and add other builtins.
+    LOG(INFO) << "Initializing Python:\n" << Py_GetVersion();
+    // append the pythohn internal modules with py
+    // the default module search path
+    string path{ Py_GetPath() };
+    // make the caffe module accessible as a builtin
+    if (PyImport_AppendInittab("_caffe", &init_caffe) == -1) {
+      return tensorflow::errors::Internal("Failed to add PyCaffe builtin module");
+    }
+    // causes a fatal error if initilization fails :(
+    Py_Initialize();
+    // set sys.path to default search path.
+    PySys_SetPath(path.c_str());
+    // append site-specific paths to the module search path
+    // and add other builtins.
     PyRun_SimpleString("import site;site.main()");
     if (PyErr_Occurred() != nullptr) {
-    	PyErr_PrintEx(0);
-    	return tensorflow::errors::Internal("Python initialization failed.");
+      PyErr_PrintEx(0);
+      return tensorflow::errors::Internal("Python initialization failed.");
     }
     initialized = true;
 #endif
   }
+  return Status::OK();
+}
+
+tensorflow::Status PythonStatus() {
+  TF_RETURN_IF_ERROR(EnsurePyCaffe());
+#ifdef WITH_PYTHON_LAYER
+  if (PyErr_Occurred() != nullptr) {
+      // print error and clear error indicator
+      PyErr_PrintEx(0);
+      return tensorflow::errors::Internal("Python error occured.");
+  }
+#endif
   return Status::OK();
 }
 

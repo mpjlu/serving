@@ -99,6 +99,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
         ":simple_thread_sink",
+        ":caffe_py_util",
         "//tensorflow_serving/servables/tensorflow:serving_session",
     ],
 )
