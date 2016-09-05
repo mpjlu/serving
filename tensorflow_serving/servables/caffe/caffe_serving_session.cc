@@ -34,7 +34,7 @@ namespace tensorflow {
 namespace serving {
 namespace {
 
-std::unique_ptr<CaffeSessionOptions> default_session_opts_ptr;
+//std::unique_ptr<CaffeSessionOptions> default_session_opts_ptr;
 
 // Constructs a flat tensor with 'vals'.
 template <typename T>
@@ -121,7 +121,9 @@ void AssignCPU() {
 
 CaffeSessionOptions::CaffeSessionOptions()
   : force_cpu_only{ false }
-  , force_gpu_id{ -1 } {
+  , force_gpu_id{ -1 }
+  , initial_shape{ nullptr }
+  , named_initial_shapes() {
 }
 
 CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
@@ -152,8 +154,7 @@ CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
   LOG(INFO)
     << "Caffe execution mode: "
     << (dev_id >= 0 ? strings::StrCat("GPU (device id: ", dev_id, ")" ) : "CPU");
-  {
-    // map blob names to indices
+  { // map blob names to indices
     const std::vector<string>& blobs = net_->blob_names();
     for (int idx : net_->input_blob_indices()) {
       input_blob_map_.emplace(blobs[idx], idx);
@@ -163,6 +164,33 @@ CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
     }
   }
 
+  { // blob reshaping
+    auto& net_blobs = net_->blobs();
+    if (opts.initial_shape) {
+      if (input_blob_map_.size() == 1) {
+        net_blobs[std::begin(input_blob_map_)->second]->Reshape(
+            *opts.initial_shape);
+      }
+      else {
+        LOG(WARNING) << "Could not reshape input Tensor."
+            << "Network has more than one input.";
+      }
+    }
+
+    // reshape named input blobs
+    for (const auto& kvp : opts.named_initial_shapes) {
+      auto it = input_blob_map_.find(kvp.first);
+      if (it != input_blob_map_.end()) {
+        net_blobs[it->second]->Reshape(kvp.second);
+      }
+      else {
+        LOG(WARNING) << "Could not reshape Tensor. Input Tensor "
+            << it->first << " does not exist in this network.";
+      }
+    }
+  }
+
+  // class labels
   if (graph.classes.dtype() != DT_INVALID) {
     class_labels_.reset(new Tensor());
     if (!class_labels_->FromProto(graph.classes)) {
@@ -180,8 +208,6 @@ CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
                 class_labels_ == nullptr ?
                   "(none)" : class_labels_->DebugString()
               );
-
-
 }
 
 CaffeServingSession::~CaffeServingSession() = default;
@@ -224,7 +250,7 @@ Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& in
   return ts_.run(
     [&](caffe::Net<float>* net) {
       // copy inputs to blobs
-      auto net_blobs = net->blobs();
+      auto& net_blobs = net->blobs();
       for (const std::pair<string, Tensor>& in: inputs) {
         auto it = input_blob_map_.find(in.first);
         if (it == input_blob_map_.end()) {

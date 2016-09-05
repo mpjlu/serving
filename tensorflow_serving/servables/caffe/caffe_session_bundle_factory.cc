@@ -34,6 +34,31 @@ CaffeSessionOptions GetSessionOptions(const CaffeSessionBundleConfig& config) {
   CaffeSessionOptions options;
   options.force_cpu_only = config.force_cpu_only();
   options.force_gpu_id = config.force_gpu_id();
+
+  auto transform_shape =
+      [](const TensorShapeProto& in, CaffeSessionOptions::blob_shape* out) {
+        std::transform(std::begin(in.dim()), std::end(in.dim()), out->begin(),
+            [](const TensorShapeProto_Dim& dim) { return dim.size(); });
+      };
+
+  { // initial shape
+    const auto& is = config.initial_shape();
+    if (!is.unknown_rank() && is.dim_size() > 0) {
+      options.initial_shape.reset(
+          new CaffeSessionOptions::blob_shape(is.dim_size()));
+      transform_shape(is, options.initial_shape.get());
+    }
+  }
+  { // initial named shapes
+    const auto& is = config.named_initial_shapes();
+    for (const auto& kvp : is) {
+      std::pair<string, CaffeSessionOptions::blob_shape> p = std::make_pair(
+          kvp.first, CaffeSessionOptions::blob_shape(kvp.second.dim_size()));
+      transform_shape(kvp.second, &p.second);
+      options.named_initial_shapes.push_back(std::move(p));
+    }
+  }
+
   return options;
 }
 

@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <array>
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
@@ -21,7 +22,6 @@ template<class T> class Net;
 
 // Caffe doesn't seem to provide an easy way to determine
 // the network inputs/outputs without initializing one;
-//
 // This implementation is based on on caffe::Net::Init(...)
 ::tensorflow::Status ResolveNetInsOuts(const caffe::NetParameter& param,
                                        std::vector<std::string>& in_blobs,
@@ -32,10 +32,15 @@ namespace tensorflow {
 namespace serving {
 
 struct CaffeSessionOptions {
+  using blob_shape = std::vector<int>;
   // force cpu-only mode, even when configured for GPU.
   bool force_cpu_only;
   // force the use of a particular gpu for this session.
   int force_gpu_id;
+  // force a reshape of the networks input
+  std::unique_ptr<blob_shape> initial_shape;
+  // force a reshape of named networks inputs
+  std::vector<std::pair<std::string, blob_shape>> named_initial_shapes;
 
   CaffeSessionOptions();
 };
