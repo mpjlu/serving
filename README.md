@@ -67,12 +67,11 @@ To run tests related to the Caffe servable implementation, run:
 
     > bazel test tensorflow_serving/servables/caffe/...
 
+---
 
-## Examples
+## *Example*: MNIST handwriting recognition
 
 The `mnist_inference` example service implementations have been altered in this fork to run with the Caffe runtime when built with the `--define=runtime=caffe` option; making it easy to see the required changes to serve with Caffe rather than Tensorflow. Typically less than 10 lines of code need altering.
-
-### MNIST handwriting recognition
 
 #### 1. Download the pre-trained caffe model:
 
@@ -87,59 +86,93 @@ The contents of any pretrained model must include `deploy.prototxt` `weights.caf
 
 Select one of the two mnist services to build and run. Ideally, you should be familiar with the TFS mnist tutorials ([Basic](tensorflow_serving/g3doc/serving_basic.md), [Advanced](tensorflow_serving/g3doc/serving_advanced.md)) before serving Caffe models with TFS. Equivalent instructions for serving the mnist examples with caffe follow; note that the only change required is `--define=runtime=caffe` when building.
 
-##### 2.a Basic service
+- ##### 2.a Basic service
 
+    ```
     > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
     > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
+    ```
 
-        I Backend set to Caffe
-        I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
-        I Caffe execution mode: CPU
-        I Loaded Network:
-            name: LeNet
-            inputs: 1
-            outputs: 1
-            initial batch-size: 1
-            output classes: Tensor<type: string shape: [10] values: Zero One Two...>
-        I Running restore op for CaffeSessionBundle
-        I Done loading SessionBundle
-        I Wrapping SessionBundle session to perform batch processing
-        I Running...
+    *Sample output:*
+    ```
+    I Backend set to Caffe
+    I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
+    I Caffe execution mode: CPU
+    I Loaded Network:
+        name: LeNet
+        inputs: 1
+        outputs: 1
+        initial batch-size: 1
+        output classes: Tensor<type: string shape: [10] values: Zero One Two...>
+    I Running restore op for CaffeSessionBundle
+    I Done loading SessionBundle
+    I Wrapping SessionBundle session to perform batch processing
+    I Running...
+    ```
 
-##### 2.b Advanced service
+- ##### 2.b Advanced service
 
+    ```
     > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference_2
     > ./bazel-bin/tensorflow_serving/example/mnist_inference_2 --port=9000 /tmp/mnist_export_caffe
+    ```
 
 #### 3. Build and run the client
 
-    > bazel build -c opt //tensorflow_serving/example:mnist_client
-    > bazel-bin/tensorflow_serving/example/mnist_client \
-        --num_tests=1000 --server=localhost:9000 --concurrency=10
+```
+> bazel build -c opt //tensorflow_serving/example:mnist_client
+> bazel-bin/tensorflow_serving/example/mnist_client \
+    --num_tests=1000 --server=localhost:9000 --concurrency=10
+```
 
-        Inference error rate: 1.2%
-        Request error rate: 0.0%
-        Avg. Throughput: 197.192047438 reqs/s
-        Request Latency (percentiles):
-          50th ....... 46ms
-          90th ....... 62ms
-          99th ....... 83ms
+- *Sample output:*
 
+    ```
+    Inference error rate: 1.2%
+    Request error rate: 0.0%
+    Avg. Throughput: 197.192047438 reqs/s
+    Request Latency (percentiles):
+      50th ....... 46ms
+      90th ....... 62ms
+      99th ....... 83ms
+    ```
 
-## *Faster* RCNN example
+---
+
+## *Example:* Object detection (Faster RCNN)
 
 (work in progress)
+
+#### Example test
 
     > bazel test --test_output=streamed --define=caffe_flavour=rcnn --define=caffe_python_layer=ON \
         //tensorflow_serving/servables/caffe:caffe_session_bundle_factory_test_py
 
-    > bazel run //tensorflow_serving/example:rcnn_fetch -- /tmp/rcnn_data
+#### Fetch, build and setup py-faster-rcnn and demo models. 
+By default this will setup the VGG16 model.
 
+    > bazel run //tensorflow_serving/example:rcnn_fetch -- --fetch-demo-models /tmp/rcnn_data
     > bazel run //tensorflow_serving/example:rcnn_setup -- --force /tmp/rcnn_data /tmp/rcnn_export
+
+#### Build the rcnn detector
 
     > bazel build --define=caffe_flavour=rcnn --define=caffe_python_layer=ON \
         //tensorflow_serving/example:rcnn_detector
 
+#### Build the detector client
+
+    > bazel build --define=caffe_python_layer=ON --define=caffe_flavour=rcnn \
+        //tensorflow_serving/example:rcnn_client
+
+#### Run the server
+
+    > bazel-bin/tensorflow_serving/example/rcnn_detector --port=9000 /tmp/rcnn_export
+
+#### Run the client
+
+    > bazel-bin/tensorflow_serving/example/rcnn_client --server=localhost:9000
+
+---
 
 ## FAQ
 
