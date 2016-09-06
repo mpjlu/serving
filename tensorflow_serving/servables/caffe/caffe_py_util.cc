@@ -38,7 +38,7 @@ tensorflow::Status EnsurePyCaffeSystemPath(const string& path) {
 #ifdef WITH_PYTHON_LAYER
   auto statement = strings::StrCat(
       "import sys\n",
-      "if not '", path, "' in sys.path: sys.path.append('", path, "')\n"
+      "if not '", path, "' in sys.path: sys.path.insert(0, '", path, "')\n"
       );
 
   PyRun_SimpleString(statement.c_str());
