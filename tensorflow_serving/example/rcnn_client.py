@@ -90,11 +90,13 @@ def im_scale_to_fit(im, out_shape):
 def do_inference(stub, im):
   cv = threading.Condition()
   result = []
+  result_timing = numpy.zeros(1, dtype=numpy.float64);
 
   def done(result_future):
     with cv:
       try:
         res = result_future.result()
+        result_timing[0] = timer() - result_timing[0]
         result.append(res.detections)
       except AbortionError as e:
         print ("An RPC error occured: %s" % e)
@@ -104,6 +106,7 @@ def do_inference(stub, im):
   im_input = im_transpose(im)
   req = rcnn_detector_pb2.DetectRequest(image_data=bytes(im_input.data))
 
+  result_timing[0] = timer()
   result_future = stub.Detect.future(req, 30)
   result_future.add_done_callback(
       lambda result_future: done(result_future))
@@ -111,6 +114,7 @@ def do_inference(stub, im):
   with cv:
     cv.wait()
 
+  print("Request time: %ims" % (result_timing[0] * 1000.0))
   return result[0]
 
 def vis_detections(im, dets):
