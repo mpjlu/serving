@@ -108,7 +108,11 @@ genrule(
         cp -r ./include $$outdir; ''' +
 
         if_pycaffe('''
-            cmake --build . --target pycaffe
+            # hack; we're not interested in _caffe.so, and it will
+            # probably fail to link against libprotobuf_lite.a anyway.
+            touch -d '+1 hour' lib/_caffe.so;
+
+            cmake --build . --target pycaffe;
             cp ./python/CMakeFiles/pycaffe.dir/caffe/_caffe.cpp.o $$outdir/lib; ''', '''
             touch $$outdir/lib/_caffe.cpp.o; '''
         ) +
