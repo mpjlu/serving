@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
-#include "tensorflow_serving/servables/caffe/example/mnist_sample.h"
+#include "tensorflow_serving/servables/caffe/test_data/mnist_sample.h"
 
 #include <memory>
 #include <string>
