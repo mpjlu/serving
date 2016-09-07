@@ -8,4 +8,5 @@ def caffe_pkg(label):
   return select({
       "//conditions:default": ["@caffe//" + label],
       "@caffe_tools//:use_caffe_rcnn": ["@caffe_rcnn//" + label],
+      "@caffe_tools//:use_caffe_ssd": ["@caffe_ssd//" + label],
   })

@@ -15,6 +15,12 @@ config_setting(
     name = "use_caffe_rcnn",
     values = { "define": "caffe_flavour=rcnn" },
 )
+# ssd
+config_setting(
+    name = "use_caffe_ssd",
+    values = { "define": "caffe_flavour=ssd" },
+)
+
 
 cc_library(
     name = "openblas_prelude",
