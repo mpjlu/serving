@@ -59,7 +59,7 @@ Status GetClassLabelsFromExport(const StringPiece export_dir,
       }
     }
     proto->set_dtype(DT_STRING);
-    TensorShape({ proto->string_val().size() }).AsProto(
+    TensorShape({ 1, proto->string_val().size() }).AsProto(
       proto->mutable_tensor_shape());
   }
   return Status::OK();
