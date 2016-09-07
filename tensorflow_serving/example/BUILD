@@ -196,10 +196,33 @@ py_binary(
 
 
 #
-# faster-rcnn example
+# object detector examples
 #
 
-# Downloads a py-faster-rcnn repo from github
+serving_proto_library(
+    name = "obj_detector_proto",
+    srcs = ["obj_detector.proto"],
+    has_services = 1,
+    cc_api_version = 2,
+    cc_grpc_version = 1,
+)
+
+py_binary(
+    name = "obj_detector_client",
+    srcs = [
+        "obj_detector_client.py",
+        "obj_detector_pb2.py",
+    ],
+    deps = [
+        ":mnist_input_data",
+        "@org_tensorflow//tensorflow:tensorflow_py",
+    ],
+)
+
+#
+# faster-rcnn detector
+#
+
 py_binary(
     name = "rcnn_fetch",
     srcs = ["rcnn_fetch.py"],
@@ -210,22 +233,14 @@ py_binary(
     srcs = ["rcnn_setup.py"],
 )
 
-serving_proto_library(
-    name = "rcnn_detector_proto",
-    srcs = ["rcnn_detector.proto"],
-    has_services = 1,
-    cc_api_version = 2,
-    cc_grpc_version = 1,
-)
-
 cc_binary(
-    name = "rcnn_detector",
-    srcs = ["rcnn_detector.cc", "rcnn_utils.cc", "rcnn_utils.h"],
+    name = "obj_detector_rcnn",
+    srcs = ["obj_detector_rcnn.cc", "rcnn_utils.cc", "rcnn_utils.h"],
     linkopts = ["-lm"],
     deps = [
         "@grpc//:grpc++",
         "@org_tensorflow//tensorflow/core:lib",
-        ":rcnn_detector_proto",
+        ":obj_detector_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
         "//tensorflow_serving/core:manager",
@@ -238,14 +253,26 @@ cc_binary(
     ]
 )
 
-py_binary(
-    name = "rcnn_client",
-    srcs = [
-        "rcnn_client.py",
-        "rcnn_detector_pb2.py",
-    ],
+#
+# ssd detector
+#
+
+cc_binary(
+    name = "obj_detector_ssd",
+    srcs = ["obj_detector_ssd.cc", "rcnn_utils.cc", "rcnn_utils.h"],
+    linkopts = ["-lm", "-lboost_regex"],
     deps = [
-        ":mnist_input_data",
-        "@org_tensorflow//tensorflow:tensorflow_py",
-    ],
+        "@grpc//:grpc++",
+        "@org_tensorflow//tensorflow/core:lib",
+        ":obj_detector_proto",
+        "//tensorflow_serving/batching:basic_batch_scheduler",
+        "//tensorflow_serving/batching:batch_scheduler",
+        "//tensorflow_serving/core:manager",
+        "//tensorflow_serving/core:servable_handle",
+        "//tensorflow_serving/core:servable_id",
+        "//tensorflow_serving/session_bundle:signature",
+        "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+        "//tensorflow_serving/servables/caffe:caffe_simple_servers",
+        "//tensorflow_serving/servables/caffe:caffe_signature",
+    ]
 )

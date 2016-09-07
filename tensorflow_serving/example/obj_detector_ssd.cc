@@ -52,8 +52,8 @@ limitations under the License.
 #include "tensorflow_serving/session_bundle/signature.h"
 
 // service api
-#include "tensorflow_serving/example/rcnn_detector.grpc.pb.h"
-#include "tensorflow_serving/example/rcnn_detector.pb.h"
+#include "tensorflow_serving/example/obj_detector.grpc.pb.h"
+#include "tensorflow_serving/example/obj_detector.pb.h"
 
 // caffe servable
 #include "tensorflow_serving/servables/caffe/caffe_simple_servers.h"
@@ -83,8 +83,8 @@ using tensorflow::serving::DetectService;
 using tensorflow::serving::Detection;
 
 namespace {
-const int kImageSizeW = 800;
-const int kImageSizeH = 600;
+const int kImageSizeW = 300;
+const int kImageSizeH = 300;
 const int kNumChannels = 3;
 const int kImageDataSize = kImageSizeW * kImageSizeH * kNumChannels;
 
@@ -274,11 +274,11 @@ void DetectServiceImpl::DoDetectInBatch(
       task->calldata->Finish(status);
     }
   };
-  if (batch_size > 1) {
-    // currently not supported by py-faster-rcnn
-    complete_with_error(StatusCode::INTERNAL, "batch size > 1");
-    return;
-  }
+  //if (batch_size > 1) {
+  //  // currently not supported by py-faster-rcnn
+  //  complete_with_error(StatusCode::INTERNAL, "batch size > 1");
+  //  return;
+  //}
 
   // Get a handle to the SessionBundle.  The handle ensures the Manager does
   // not reload this while it is in use.
@@ -298,14 +298,25 @@ void DetectServiceImpl::DoDetectInBatch(
     return;
   }
 
+  // Get the default signature of the graph.  Expected to be a
+  // classification signature.
+  tensorflow::serving::ClassificationSignature signature;
+  const tensorflow::Status signature_status =
+      GetClassificationSignature(bundle->meta_graph_def, &signature);
+  if (!signature_status.ok()) {
+    complete_with_error(StatusCode::INTERNAL,
+                        signature_status.error_message());
+    return;
+  }
+
   // Transform protobuf input to inference input tensor.
   // See mnist_model.py for details.
   // WARNING(break-tutorial-inline-code): The following code snippet is
   // in-lined in tutorials, please update tutorial documents accordingly
   // whenever code changes.
-  Tensor im_blob(tensorflow::DT_FLOAT, {batch_size, kImageDataSize});
+  Tensor input(tensorflow::DT_FLOAT, {batch_size, kImageDataSize});
   {
-    auto dst = im_blob.flat_outer_dims<float>().data();
+    auto dst = input.flat_outer_dims<float>().data();
     for (int i = 0; i < batch_size; ++i) {
       const auto& im = batch->mutable_task(i)->calldata->request().image_data();
       std::transform(im.begin(), im.end(), dst,
@@ -315,57 +326,74 @@ void DetectServiceImpl::DoDetectInBatch(
   }
   // BGR means-subtraction
   tensorflow::Status means_status =
-    rcnn::BatchBGRMeansSubtract(&im_blob);
+    rcnn::BatchBGRMeansSubtract(&input);
 
   if (!means_status.ok()) {
     complete_with_error(StatusCode::INTERNAL, means_status.error_message());
     return;
   }
 
-  Tensor im_info(tensorflow::DT_FLOAT, {batch_size, 3});
-  {
-    auto dst = im_info.flat<float>().data();
-    dst[0] = kImageSizeH;
-    dst[1] = kImageSizeW;
-    dst[2] = 1.0 /* scale */;
-  }
-
+  // Run classification.
   tensorflow::Tensor scores;
-  tensorflow::Tensor boxes;
   tensorflow::Tensor class_labels;
 
-  // Run classification.
-  tensorflow::Status run_status =
-    rcnn::RunClassification(
-        im_blob, im_info, bundle->session.get(),
-        &boxes, &scores, &class_labels);
-
+  const tensorflow::Status run_status =
+      RunClassification(signature, input, bundle->session.get(),
+                        &class_labels, &scores);
   if (!run_status.ok()) {
     complete_with_error(StatusCode::INTERNAL, run_status.error_message());
     return;
   }
+  if (scores.dtype() != tensorflow::DT_FLOAT) {
+    complete_with_error(
+        StatusCode::INTERNAL,
+        tensorflow::strings::StrCat(
+            "Expected output Tensor of DT_FLOAT.  Got: ",
+            tensorflow::DataType_Name(scores.dtype())));
+    return;
+  }
 
-  std::vector<rcnn::Detection> dets;
-  // Post-process bounding boxes
-  run_status = rcnn::ProcessDetections(
-      &boxes, &scores, &dets);
+  std::vector<std::vector<rcnn::Detection>> dets(batch_size);
+  const auto labels_mat = class_labels.matrix<string>();
 
-  // Transform inference output tensor to protobuf output.
-  auto labels_mat = class_labels.flat<string>();
+  {
+    const int n = scores.dim_size(2);
+    const auto out_mat = scores.shaped<float, 2>({ n, 7 });
+
+    for (int i=0; i < n; ++i) {
+      int image_id = static_cast<int>(out_mat(i, 0));
+      rcnn::Detection det { 
+          std::array<int, 4>{ 
+            static_cast<int>(out_mat(i, 3) * kImageSizeW), 
+            static_cast<int>(out_mat(i, 4) * kImageSizeH),
+            static_cast<int>(out_mat(i, 5) * kImageSizeW),
+            static_cast<int>(out_mat(i, 6) * kImageSizeH) 
+          }, 
+          static_cast<int>(out_mat(i, 1)), 
+          out_mat(i, 2) 
+        };
+      dets[image_id].push_back(det);
+    }
+  }
+
   for (int i = 0; i < batch_size; ++i) {
     auto calldata = batch->mutable_task(i)->calldata;
+    const float thresh = calldata->request().min_score_threshold();
+    
     DetectResponse* resp = calldata->mutable_response();
-
-    for (const auto& det : dets) {
+    for (const auto& det : dets[i]) {
       if (det.class_idx == 0)
         continue;
+      if (det.score < thresh)
+        continue;
+
       Detection* det_proto = resp->add_detections();
       det_proto->set_roi_x1(det.roi_rect[0]);
       det_proto->set_roi_y1(det.roi_rect[1]);
       det_proto->set_roi_x2(det.roi_rect[2]);
       det_proto->set_roi_y2(det.roi_rect[3]);
       det_proto->set_score(det.score);
-      det_proto->set_class_label(labels_mat(det.class_idx));
+      det_proto->set_class_label(labels_mat(0, det.class_idx));
     }
     calldata->Finish(Status::OK);
   }
@@ -407,12 +435,6 @@ void RunServer(const int port, const string& servable_name,
   HandleRpcs(&service_impl, &service, cq.get());
 }
 
-string get_exe_path() {
-  char result[PATH_MAX];
-  ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
-  return string(result, (count > 0) ? count : 0);
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -432,22 +454,7 @@ int main(int argc, char** argv) {
   // Initialize Caffe subsystem
   tensorflow::serving::CaffeGlobalInit(&argc, &argv);
   tensorflow::serving::CaffeSourceAdapterConfig source_adapter_config;
-  {
-    auto bundle_cfg = source_adapter_config.mutable_config();
-    // enable pycaffe
-    bundle_cfg->set_enable_py_caffe(true);
-    // add path to pycaffe python module(s)
-    bundle_cfg->add_python_path(tensorflow::strings::StrCat(get_exe_path(),
-      ".runfiles/tf_serving/tensorflow_serving/servables/caffe/pycaffe"));
-    // add path to py-faster-rcnn
-    bundle_cfg->add_python_path(export_base_path + "/lib");
-    // reshape the image blob
-    auto& shape = (*bundle_cfg->mutable_named_initial_shapes())[ "data" ];
-    shape.add_dim()->set_size(1);
-    shape.add_dim()->set_size(kNumChannels);
-    shape.add_dim()->set_size(kImageSizeH);
-    shape.add_dim()->set_size(kImageSizeW);
-  }
+  
   std::unique_ptr<tensorflow::serving::Manager> manager;
   tensorflow::Status status = tensorflow::serving::simple_servers::
       CreateSingleCaffeModelManagerFromBasePath(export_base_path, source_adapter_config, &manager);

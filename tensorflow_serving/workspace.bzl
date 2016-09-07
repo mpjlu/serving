@@ -26,7 +26,7 @@ def tf_serving_workspace(workspace_dir):
     actual = "@zlib_archive//:zlib",
   )
 
-  # ===== caffe dependencies =====
+  # ===== caffe flavors =====
   native.new_git_repository(
     name = "caffe",
     remote = "https://github.com/BVLC/caffe",
@@ -50,6 +50,8 @@ def tf_serving_workspace(workspace_dir):
     init_submodules = True,
     build_file = workspace_dir + "/caffe.BUILD",
   )
+
+  # ===== caffe build/integration tools =====
   native.local_repository(
     name = "caffe_tools",
     path = workspace_dir + "/third_party/caffe"

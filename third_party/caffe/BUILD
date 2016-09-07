@@ -1,16 +1,22 @@
 package(
     default_visibility = ["//visibility:public"],
-    features = [
-        "-layering_check",
-        "-parse_headers",
-    ],
 )
 
+#
+# Caffe config settings
+#
+
+# enable pycaffe
 config_setting(
     name = "caffe_python_layer",
     values = { "define": "caffe_python_layer=ON" },
 )
-
+# standard caffe
+config_setting(
+    name = "use_caffe_bvlc",
+    values = { "define": "caffe_flavour=bvlc" },
+)
+# faster-rcnn caffe
 config_setting(
     name = "use_caffe_rcnn",
     values = { "define": "caffe_flavour=rcnn" },
@@ -21,6 +27,9 @@ config_setting(
     values = { "define": "caffe_flavour=ssd" },
 )
 
+#
+# Shims/preludes
+#
 
 cc_library(
     name = "openblas_prelude",
