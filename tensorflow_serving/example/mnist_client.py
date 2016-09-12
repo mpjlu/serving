@@ -36,9 +36,9 @@ from grpc.beta import implementations
 import numpy
 import tensorflow as tf
 
+from client_util import InferenceStats
 from tensorflow_serving.example import mnist_inference_pb2
 from tensorflow_serving.example import mnist_input_data
-
 
 tf.app.flags.DEFINE_integer('concurrency', 1,
                             'maximum number of concurrent inference requests')
@@ -46,38 +46,6 @@ tf.app.flags.DEFINE_integer('num_tests', 100, 'Number of test images')
 tf.app.flags.DEFINE_string('server', '', 'mnist_inference service host:port')
 tf.app.flags.DEFINE_string('work_dir', '/tmp', 'Working directory. ')
 FLAGS = tf.app.flags.FLAGS
-
-
-class InferenceStats(object):
-  """Statistics useful for evaluating basic classification and
-     runtime performance"""
-
-  @staticmethod
-  def print_summary(stats, percentiles=[50, 90, 99]):
-    filtered = numpy.ma.masked_invalid(stats.timings).compressed() # remove NaNs
-
-    print '\nInference error rate: %s%%' % (
-        stats.classification_error * 100)
-
-    print "Request error rate: %s%%" % (
-        (1.0 - float(filtered.size) / stats.timings.size) * 100)
-
-    print "Avg. Throughput: %s reqs/s" % (
-        float(stats.num_tests) / stats.total_elapsed_time)
-
-    if filtered.size > 0:
-      print "Request Latency (percentiles):"
-      for pc, x in zip(percentiles, numpy.percentile(filtered, percentiles)):
-        print "  %ith ....... %ims" % (pc, x * 1000.0)
-
-  def __init__(self, num_tests, classification_error,
-               timings, total_elapsed_time):
-    assert num_tests == timings.size
-    self.num_tests = num_tests
-    self.classification_error = classification_error
-    self.timings = timings
-    self.total_elapsed_time = total_elapsed_time
-
 
 def do_inference(hostport, work_dir, concurrency, num_tests):
   """Tests mnist_inference service with concurrent requests.

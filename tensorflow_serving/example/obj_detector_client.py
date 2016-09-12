@@ -24,18 +24,20 @@ Typical usage example:
 
 import sys
 import threading
+from os import listdir
+from os.path import isfile, join
 from timeit import default_timer as timer
-
-from grpc.beta import implementations
-from grpc.framework.interfaces.face.face import AbortionError
 
 import numpy
 import tensorflow as tf
-
-from tensorflow_serving.example import obj_detector_pb2
 import skimage.io as io
 import skimage.transform as transform
 import matplotlib.pyplot as plt
+
+from grpc.beta import implementations
+from grpc.framework.interfaces.face.face import AbortionError
+from tensorflow_serving.example import obj_detector_pb2
+from client_util import InferenceStats
 
 tf.app.flags.DEFINE_integer('concurrency', 1,
                             'maximum number of concurrent inference requests')
@@ -45,39 +47,9 @@ tf.app.flags.DEFINE_bool('verbose', False, 'print detections to stdout')
 tf.app.flags.DEFINE_bool('gui', False, 'show detections in a gui')
 tf.app.flags.DEFINE_string('img', 'https://upload.wikimedia.org/wikipedia/commons/4/4f/G8_Summit_working_session_on_global_and_economic_issues_May_19%2C_2012.jpg',
                            'url or path of an image to classify')
+tf.app.flags.DEFINE_string('imgdir', None, 'path to a directory of images')
+
 FLAGS = tf.app.flags.FLAGS
-
-class InferenceStats(object):
-  """Statistics useful for evaluating basic classification and
-     runtime performance"""
-
-  @staticmethod
-  def print_summary(stats, percentiles=[50, 90, 99]):
-    filtered = numpy.ma.masked_invalid(stats.timings).compressed() # remove NaNs
-
-    print '\nInference error rate: %s%%' % (
-        stats.classification_error * 100)
-
-    print "Request error rate: %s%%" % (
-        (1.0 - float(filtered.size) / stats.timings.size) * 100)
-
-    print "Avg. Throughput: %s reqs/s" % (
-        float(stats.num_tests) / stats.total_elapsed_time)
-
-    if filtered.size > 0:
-      print "Request Latency (percentiles):"
-      for pc, x in zip(percentiles, numpy.percentile(filtered, percentiles)):
-        print "  %ith ....... %ims" % (pc, x * 1000.0)
-
-  def __init__(self, num_tests, classification_error,
-               timings, total_elapsed_time):
-    assert num_tests == timings.size
-    self.num_tests = num_tests
-    self.classification_error = classification_error
-    self.timings = timings
-    self.total_elapsed_time = total_elapsed_time
-
-
 
 def connect(hostport):
   """
@@ -94,8 +66,8 @@ def handshake(stub):
   cofigurations such as input-image shape, number of
   channels etc.
   """
-  #return (600, 800, 3)
   return (300, 300, 3)
+  
 
 def im_transpose(im):
   """
@@ -165,7 +137,7 @@ def do_inference(stub, concurrency, num_tests, images, detection_thresh=0.7):
       result['active'] += 1
 
     result_timing[n] = timer()
-    result_future = stub.Detect.future(req, 10)
+    result_future = stub.Detect.future(req, 30)
     result_future.add_done_callback(
         lambda result_future, n=n, im_idx=im_idx: done(n, im_idx, result_future))
 
@@ -202,31 +174,41 @@ def vis_detections(im, dets):
             linewidth=2))
   plt.tight_layout()
   plt.draw()
+  plt.show()
 
 def main(_):
   if not FLAGS.server:
     print 'please specify server host:port'
     return
 
+  # build image list
+  paths = None
+  if FLAGS.imgdir != None:
+    paths = [join(FLAGS.imgdir, f) for f in listdir(FLAGS.imgdir) if isfile(join(FLAGS.imgdir, f))]
+  else:
+    paths = [FLAGS.img]
+
+  # connect and get input image shape
   stub = connect(FLAGS.server)
   input_shape = handshake(stub)
 
-  ims = [im_scale_to_fit(io.imread(FLAGS.img), input_shape)]
+  # load the image gallery 
+  ims = [im_scale_to_fit(io.imread(path), input_shape) for path in paths]
   n = len(ims) if FLAGS.num_tests < 0 else FLAGS.num_tests
 
+  # run the tests
   stats, results = do_inference(stub, FLAGS.concurrency, n, ims)
+  InferenceStats.print_summary(stats)
 
+  # verbose output / gui
   for image_idx, dets in results:
     if FLAGS.verbose:
-      print('\nimage {0}\n----------------'.format(image_idx))
+      print('\n{0}\n----------------'.format(paths[image_idx]))
       for det in dets:
         print(' {:s}\n  > score: {:.3f}\n  > bbox (x1, y1, x2, y2): ({:d}, {:d}, {:d}, {:d})\n'.format(
               det.class_label, det.score, det.roi_x1, det.roi_y1, det.roi_x2, det.roi_y2))
     if FLAGS.gui:
       vis_detections(ims[image_idx], dets)
-
-  InferenceStats.print_summary(stats)
-  plt.show()
 
 if __name__ == '__main__':
   tf.app.run()

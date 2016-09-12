@@ -21,6 +21,7 @@ limitations under the License.
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 
 // gRPC
 #include "grpc++/completion_queue.h"
@@ -60,8 +61,8 @@ limitations under the License.
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 #include "tensorflow_serving/servables/caffe/caffe_signature.h"
 
-// rcnn utils
-#include "tensorflow_serving/example/rcnn_utils.h"
+// utils (mostly to support faster-rcnn)
+#include "tensorflow_serving/example/obj_detector_utils.h"
 
 using grpc::InsecureServerCredentials;
 using grpc::Server;
@@ -75,6 +76,7 @@ using grpc::StatusCode;
 using tensorflow::string;
 using tensorflow::Tensor;
 using tensorflow::TensorShape;
+using tensorflow::strings::StrCat;
 using tensorflow::serving::ClassificationSignature;
 
 using tensorflow::serving::DetectRequest;
@@ -82,11 +84,53 @@ using tensorflow::serving::DetectResponse;
 using tensorflow::serving::DetectService;
 using tensorflow::serving::Detection;
 
+using Resolution = std::pair<int32_t /* h */, int32_t /* w */>;
+using BundleType = tensorflow::serving::CaffeSessionBundle;
+
 namespace {
-const int kImageSizeW = 800;
-const int kImageSizeH = 600;
+
+const string USAGE = StrCat(
+    "Usage: obj_detector --port=<port> --resolution=<HxW> [--help]  /path/to/export",
+    "\n",
+    "\n  --port:        The port to listen on for RPC connections, e.g. 9000",
+    "\n  --resolution:  The resolution of image to accept, e.g. 800x600",
+    "\n"
+    );
+
+#if !defined(WITH_RCNN) && !defined(WITH_SSD)
+
+  static_assert(false, "\n\n INVALID BUILD CONFIGURATION: You must define a valid detector type! \n\n");
+
+#elif WITH_RCNN
+
+  const int32_t MAX_BATCH_SIZE = 1;
+  const int32_t BATCH_TIMEOUT = 0;
+
+  inline ::pixel_means_type means() {
+    pixel_means_type m;
+    m.setValues({
+      { 102.9801 }, { 115.9465 }, { 122.7717 }
+    });
+    return m;
+  }
+
+#elif WITH_SSD
+
+  const int32_t MAX_BATCH_SIZE = 24;
+  const int32_t BATCH_TIMEOUT = 1000 * 8 /* 8ms */;
+
+  inline ::pixel_means_type means() {
+    pixel_means_type m;
+    m.setValues({
+      { 104.0 }, { 117.0 }, { 123.0 }
+    });
+    return m;
+  }
+
+#endif
+
+// only support bgr images for simpicity.
 const int kNumChannels = 3;
-const int kImageDataSize = kImageSizeW * kImageSizeH * kNumChannels;
 
 class DetectServiceImpl;
 
@@ -146,22 +190,24 @@ struct Task : public tensorflow::serving::BatchTask {
 class DetectServiceImpl final {
  public:
   DetectServiceImpl(const string& servable_name,
-                   std::unique_ptr<tensorflow::serving::Manager> manager);
+                    const Resolution input_resolution,
+                    std::unique_ptr<tensorflow::serving::Manager> manager);
 
   void Detect(CallData* call_data);
-
-  // Produces classifications for a batch of requests and associated responses.
-  void DoDetectInBatch(
-      std::unique_ptr<tensorflow::serving::Batch<Task>> batch);
+  void DoDetectInBatch(std::unique_ptr<tensorflow::serving::Batch<Task>> batch);
 
   // Name of the servable to use for inference.
-  const string servable_name_;
-  // Manager in charge of loading and unloading servables.
+  const tensorflow::serving::ServableRequest servable_req_;
+  const Resolution input_resolution_;
+  const size_t img_buffsize_;
+  const ::pixel_means_type img_pixel_means_;
+
   std::unique_ptr<tensorflow::serving::Manager> manager_;
-  // A scheduler for batching multiple request calls into single calls to
-  // Session->Run().
   std::unique_ptr<tensorflow::serving::BasicBatchScheduler<Task>>
       batch_scheduler_;
+ private:
+  tensorflow::Status DoDetectInBatch_impl(
+    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch);
 };
 
 // Take in the "service" instance (in this case representing an asynchronous
@@ -207,20 +253,21 @@ void CallData::Finish(Status status) {
 
 DetectServiceImpl::DetectServiceImpl(
     const string& servable_name,
+    const Resolution input_resolution,
     std::unique_ptr<tensorflow::serving::Manager> manager)
-  : servable_name_(servable_name)
-  , manager_(std::move(manager)) 
+  : servable_req_(tensorflow::serving::ServableRequest::Latest(servable_name))
+  , input_resolution_(input_resolution)
+  , img_buffsize_(kNumChannels * std::get<0>(input_resolution) * std::get<1>(input_resolution))
+  , img_pixel_means_(means())
+  , manager_(std::move(manager))
 {
-  tensorflow::serving::BasicBatchScheduler<Task>::Options scheduler_options;
-  scheduler_options.thread_pool_name = "service_batch_threads";
-  // Use a large queue, to avoid rejecting requests. (Note: a production
-  // server with load balancing may want to use the default, much smaller,
-  // value.)
-  scheduler_options.max_enqueued_batches = 250;
-  // py-faster-rcnn doesnt support minibatches larger than 1.
-  scheduler_options.max_batch_size = 1;
+  tensorflow::serving::BasicBatchScheduler<Task>::Options sched_opts;
+  sched_opts.thread_pool_name = "detector_batch_threads";
+  sched_opts.max_enqueued_batches = 250 / MAX_BATCH_SIZE;
+  sched_opts.max_batch_size = MAX_BATCH_SIZE;
+  sched_opts.batch_timeout_micros = BATCH_TIMEOUT;
   TF_CHECK_OK(tensorflow::serving::BasicBatchScheduler<Task>::Create(
-      scheduler_options,
+      sched_opts,
       [this](std::unique_ptr<tensorflow::serving::Batch<Task>> batch) {
         this->DoDetectInBatch(std::move(batch));
       },
@@ -233,16 +280,13 @@ Status ToGRPCStatus(const tensorflow::Status& status) {
                 status.error_message());
 }
 
-// WARNING(break-tutorial-inline-code): The following code snippet is
-// in-lined in tutorials, please update tutorial documents accordingly
-// whenever code changes.
 void DetectServiceImpl::Detect(CallData* calldata) {
   // Verify input.
-  if (calldata->request().image_data().size() != kImageDataSize) {
+  if (calldata->request().image_data().size() != img_buffsize_) {
     calldata->Finish(
         Status(StatusCode::INVALID_ARGUMENT,
                tensorflow::strings::StrCat(
-                   "expected image_data of size ", kImageDataSize,
+                   "expected image_data of size ", img_buffsize_,
                    ", got ", calldata->request().image_data().size())));
     return;
   }
@@ -257,118 +301,125 @@ void DetectServiceImpl::Detect(CallData* calldata) {
   }
 }
 
-// Produces classifications for a batch of requests and associated responses.
 void DetectServiceImpl::DoDetectInBatch(
     std::unique_ptr<tensorflow::serving::Batch<Task>> batch) {
-  batch->WaitUntilClosed();
-  if (batch->empty()) {
-    return;
+  // either the entire batch succeeds or fails
+  Status status = ToGRPCStatus(DoDetectInBatch_impl(batch));
+  // complete the task with the given status
+  for (int i = 0; i < batch->num_tasks(); i++) {
+    Task* task = batch->mutable_task(i);
+    task->calldata->Finish(status);
   }
+}
+
+tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
+    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch) {
+  batch->WaitUntilClosed();
+  if (batch->empty()) { return tensorflow::Status::OK(); }
 
   const int batch_size = batch->num_tasks();
-  // Replies to each task with the given error status.
-  auto complete_with_error = [&batch](StatusCode code, const string& msg) {
-    Status status(code, msg);
-    for (int i = 0; i < batch->num_tasks(); i++) {
-      Task* task = batch->mutable_task(i);
-      task->calldata->Finish(status);
-    }
-  };
-  if (batch_size > 1) {
-    // currently not supported by py-faster-rcnn
-    complete_with_error(StatusCode::INTERNAL, "batch size > 1");
-    return;
-  }
+  std::vector<float> batch_min_thresholds(batch_size);
 
-  // Get a handle to the SessionBundle.  The handle ensures the Manager does
-  // not reload this while it is in use.
-  // WARNING(break-tutorial-inline-code): The following code snippet is
-  // in-lined in tutorials, please update tutorial documents accordingly
-  // whenever code changes.
-  auto handle_request =
-      tensorflow::serving::ServableRequest::Latest(servable_name_);
-  tensorflow::serving::ServableHandle<tensorflow::serving::CaffeSessionBundle>
-      bundle;
-  const tensorflow::Status lookup_status =
-      manager_->GetServableHandle(handle_request, &bundle);
-
-  if (!lookup_status.ok()) {
-    complete_with_error(StatusCode::INTERNAL,
-                        lookup_status.error_message());
-    return;
-  }
-
-  // Transform protobuf input to inference input tensor.
-  // See mnist_model.py for details.
-  // WARNING(break-tutorial-inline-code): The following code snippet is
-  // in-lined in tutorials, please update tutorial documents accordingly
-  // whenever code changes.
-  Tensor im_blob(tensorflow::DT_FLOAT, {batch_size, kImageDataSize});
+  Tensor im_blob(tensorflow::DT_FLOAT, {batch_size, (long)img_buffsize_});
   {
     auto dst = im_blob.flat_outer_dims<float>().data();
     for (int i = 0; i < batch_size; ++i) {
-      const auto& im = batch->mutable_task(i)->calldata->request().image_data();
-      std::transform(im.begin(), im.end(), dst,
+      const auto& req = batch->mutable_task(i)->calldata->request();
+      std::transform(req.image_data().begin(), req.image_data().end(), dst,
           [](const uint8_t& a) { return static_cast<float>(a); });
-      dst += kImageDataSize;
+      dst += img_buffsize_;
+      batch_min_thresholds[i] = req.min_score_threshold();
     }
   }
-  // BGR means-subtraction
-  tensorflow::Status means_status =
-    rcnn::BatchBGRMeansSubtract(&im_blob);
 
-  if (!means_status.ok()) {
-    complete_with_error(StatusCode::INTERNAL, means_status.error_message());
-    return;
-  }
+  int32_t h = std::get<0>(input_resolution_);
+  int32_t w = std::get<1>(input_resolution_);
 
-  Tensor im_info(tensorflow::DT_FLOAT, {batch_size, 3});
-  {
-    auto dst = im_info.flat<float>().data();
-    dst[0] = kImageSizeH;
-    dst[1] = kImageSizeW;
-    dst[2] = 1.0 /* scale */;
-  }
+  tensorflow::serving::ServableHandle<BundleType> bundle;
+  TF_RETURN_IF_ERROR(manager_->GetServableHandle(servable_req_, &bundle));
+  TF_RETURN_IF_ERROR(::BatchMeansSubtract(img_pixel_means_, &im_blob));
 
-  tensorflow::Tensor scores;
-  tensorflow::Tensor boxes;
+  std::vector<std::vector<::ObjDetection>> dets(batch_size);
   tensorflow::Tensor class_labels;
+  tensorflow::Tensor scores;
 
-  // Run classification.
-  tensorflow::Status run_status =
-    rcnn::RunClassification(
+#if WITH_RCNN
+  {
+    assert(batch_size == 1);
+    tensorflow::Tensor boxes;
+    Tensor im_info(tensorflow::DT_FLOAT, {1, 3});
+    {
+      auto dst = im_info.flat<float>().data();
+      dst[0] = h;
+      dst[1] = w;
+      dst[2] = 1.0 /* scale */;
+    }
+
+    TF_RETURN_IF_ERROR(rcnn::RunClassification(
         im_blob, im_info, bundle->session.get(),
-        &boxes, &scores, &class_labels);
+        &boxes, &scores, &class_labels));
 
-  if (!run_status.ok()) {
-    complete_with_error(StatusCode::INTERNAL, run_status.error_message());
-    return;
+    TF_RETURN_IF_ERROR(rcnn::ProcessDetections(
+        &boxes, &scores, batch_min_thresholds[0], &dets[0]));
   }
+#elif WITH_SSD
+  {
+    tensorflow::serving::ClassificationSignature signature;
+    TF_RETURN_IF_ERROR(GetClassificationSignature(
+        bundle->meta_graph_def, &signature));
+    {
+      std::vector<Tensor> outputs;
+      TF_RETURN_IF_ERROR(bundle->session.get()->Run(
+          {{ signature.input().tensor_name(), im_blob }},
+          { signature.classes().tensor_name(), signature.scores().tensor_name() },
+          {}, &outputs));
 
-  std::vector<rcnn::Detection> dets;
-  // Post-process bounding boxes
-  run_status = rcnn::ProcessDetections(
-      &boxes, &scores, &dets);
+      class_labels = outputs[0];
+      scores = outputs[1];
+    }
 
-  // Transform inference output tensor to protobuf output.
-  auto labels_mat = class_labels.flat<string>();
+    const int n = scores.dim_size(2);
+    const auto out_mat = scores.shaped<float, 2>({ n, 7 });
+
+    for (int i=0; i < n; ++i) {
+      int image_id = static_cast<int>(out_mat(i, 0));
+      ::ObjDetection det {
+          std::array<int, 4>{
+            static_cast<int>(out_mat(i, 3) * w),
+            static_cast<int>(out_mat(i, 4) * h),
+            static_cast<int>(out_mat(i, 5) * w),
+            static_cast<int>(out_mat(i, 6) * h)
+          },
+          static_cast<int>(out_mat(i, 1)),
+          out_mat(i, 2)
+        };
+      dets[image_id].push_back(det);
+    }
+  }
+#endif
+
+  const auto labels_mat = class_labels.matrix<string>();
   for (int i = 0; i < batch_size; ++i) {
     auto calldata = batch->mutable_task(i)->calldata;
     DetectResponse* resp = calldata->mutable_response();
-
-    for (const auto& det : dets) {
+    for (const auto& det : dets[i]) {
       if (det.class_idx == 0)
         continue;
+
+      if (det.score < batch_min_thresholds[i])
+        continue;
+
       Detection* det_proto = resp->add_detections();
       det_proto->set_roi_x1(det.roi_rect[0]);
       det_proto->set_roi_y1(det.roi_rect[1]);
       det_proto->set_roi_x2(det.roi_rect[2]);
       det_proto->set_roi_y2(det.roi_rect[3]);
       det_proto->set_score(det.score);
-      det_proto->set_class_label(labels_mat(det.class_idx));
+      det_proto->set_class_label(labels_mat(0, det.class_idx));
     }
-    calldata->Finish(Status::OK);
   }
+
+  return tensorflow::Status::OK();
 }
 
 void HandleRpcs(DetectServiceImpl* service_impl,
@@ -389,8 +440,12 @@ void HandleRpcs(DetectServiceImpl* service_impl,
 }
 
 // Runs DetectService server until shutdown.
-void RunServer(const int port, const string& servable_name,
-               std::unique_ptr<tensorflow::serving::Manager> manager) {
+void RunServer(
+    const int port,
+    const string& servable_name,
+    const Resolution resolution,
+    std::unique_ptr<tensorflow::serving::Manager> manager)
+{
   // "0.0.0.0" is the way to listen on localhost in gRPC.
   const string server_address = "0.0.0.0:" + std::to_string(port);
 
@@ -403,50 +458,92 @@ void RunServer(const int port, const string& servable_name,
   std::unique_ptr<Server> server(builder.BuildAndStart());
   LOG(INFO) << "Running...";
 
-  DetectServiceImpl service_impl(servable_name, std::move(manager));
+  DetectServiceImpl service_impl(servable_name, resolution, std::move(manager));
   HandleRpcs(&service_impl, &service, cq.get());
 }
 
-string get_exe_path() {
+string proc_path() {
   char result[PATH_MAX];
   ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
   return string(result, (count > 0) ? count : 0);
 }
 
-}  // namespace
-
-int main(int argc, char** argv) {
-  // Parse command-line options.
-  tensorflow::int32 port = 0;
-
+void parse_cmdline(
+    int& argc, char** argv,
+    tensorflow::int32& port,
+    Resolution& resolution,
+    std::string& export_base_path)
+{
+  std::string resolution_str;
   const bool parse_result =
-      tensorflow::ParseFlags(&argc, argv, { tensorflow::Flag("port", &port) });
+      tensorflow::ParseFlags(&argc, argv, {
+        tensorflow::Flag("port", &port),
+        tensorflow::Flag("resolution", &resolution_str)
+      });
+
   if (!parse_result) {
     LOG(FATAL) << "Error parsing command line flags.";
   }
-  if (argc != 2) {
-    LOG(FATAL) << "Usage: obj_detector_ssd --port=9000 /path/to/exports";
+  { // resolution
+    std::stringstream ss(resolution_str);
+    std::vector<int32_t> dims;
+
+    while (ss.good()) {
+      std::string substr;
+      std::getline(ss, substr, 'x');
+      int32_t dim = std::atoi(substr.c_str());
+      if (dim <= 0) {
+        LOG(FATAL) << "Error parsing resolution dimension: " << dim;
+      }
+      dims.push_back(dim);
+    }
+    if (dims.size() != 2) {
+      LOG(FATAL) << "Invalid image resolution";
+    }
+    resolution = std::make_pair(dims[0] /* h */, dims[1] /* w */);
   }
-  const string export_base_path(argv[1]);
+  if (argc != 2) {
+    LOG(FATAL) << USAGE;
+  }
+
+  export_base_path = argv[1];
+}
+}  // namespace
+
+int main(int argc, char** argv) {
+  int32_t port;
+  std::string resolution_str;
+  Resolution resolution;
+  std::string export_base_path;
+  parse_cmdline(argc, argv, port, resolution, export_base_path);
 
   // Initialize Caffe subsystem
   tensorflow::serving::CaffeGlobalInit(&argc, &argv);
   tensorflow::serving::CaffeSourceAdapterConfig source_adapter_config;
   {
     auto bundle_cfg = source_adapter_config.mutable_config();
-    // enable pycaffe
-    bundle_cfg->set_enable_py_caffe(true);
-    // add path to pycaffe python module(s)
-    bundle_cfg->add_python_path(tensorflow::strings::StrCat(get_exe_path(),
-      ".runfiles/tf_serving/tensorflow_serving/servables/caffe/pycaffe"));
-    // add path to py-faster-rcnn
-    bundle_cfg->add_python_path(export_base_path + "/lib");
-    // reshape the image blob
-    auto& shape = (*bundle_cfg->mutable_named_initial_shapes())[ "data" ];
-    shape.add_dim()->set_size(1);
-    shape.add_dim()->set_size(kNumChannels);
-    shape.add_dim()->set_size(kImageSizeH);
-    shape.add_dim()->set_size(kImageSizeW);
+    tensorflow::TensorShapeProto* shape;
+
+#if WITH_RCNN
+    {
+      // enable pycaffe
+      bundle_cfg->set_enable_py_caffe(true);
+      // add path to pycaffe python module(s)
+      bundle_cfg->add_python_path(StrCat(proc_path(),
+          ".runfiles/tf_serving/tensorflow_serving/servables/caffe/pycaffe"));
+      // add path to py-faster-rcnn
+      bundle_cfg->add_python_path(export_base_path + "/lib");
+      shape = &(*bundle_cfg->mutable_named_initial_shapes())[ "data" ];
+    }
+#elif WITH_SSD
+    shape = bundle_cfg->mutable_initial_shape();
+#endif
+    // reshape the network for the given input resolution.
+    assert(shape != nullptr);
+    shape->add_dim()->set_size(1);
+    shape->add_dim()->set_size(kNumChannels);
+    shape->add_dim()->set_size(std::get<0>(resolution));
+    shape->add_dim()->set_size(std::get<1>(resolution));
   }
   std::unique_ptr<tensorflow::serving::Manager> manager;
   tensorflow::Status status = tensorflow::serving::simple_servers::
@@ -464,6 +561,6 @@ int main(int argc, char** argv) {
   } while (ready_ids.empty());
 
   // Run the service.
-  RunServer(port, ready_ids[0].name, std::move(manager));
+  RunServer(port, ready_ids[0].name, resolution, std::move(manager));
   return 0;
 }

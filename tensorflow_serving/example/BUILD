@@ -133,6 +133,7 @@ py_binary(
     srcs = [
         "mnist_client.py",
         "mnist_inference_pb2.py",
+        "client_util.py",
     ],
     deps = [
         ":mnist_input_data",
@@ -212,6 +213,7 @@ py_binary(
     srcs = [
         "obj_detector_client.py",
         "obj_detector_pb2.py",
+        "client_util.py",
     ],
     deps = [
         ":mnist_input_data",
@@ -220,47 +222,41 @@ py_binary(
 )
 
 #
-# faster-rcnn detector
+# detector services with faster-rcnn or SSD backend.
 #
+
+config_setting(
+    name = "obj_detector_rcnn",
+    values = { "define": "detector=rcnn" },
+)
+config_setting(
+    name = "obj_detector_ssd",
+    values = { "define": "detector=ssd" },
+)
 
 py_binary(
     name = "rcnn_fetch",
     srcs = ["rcnn_fetch.py"],
 )
-
 py_binary(
     name = "rcnn_setup",
     srcs = ["rcnn_setup.py"],
 )
 
 cc_binary(
-    name = "obj_detector_rcnn",
-    srcs = ["obj_detector_rcnn.cc", "rcnn_utils.cc", "rcnn_utils.h"],
-    linkopts = ["-lm"],
-    deps = [
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:lib",
-        ":obj_detector_proto",
-        "//tensorflow_serving/batching:basic_batch_scheduler",
-        "//tensorflow_serving/batching:batch_scheduler",
-        "//tensorflow_serving/core:manager",
-        "//tensorflow_serving/core:servable_handle",
-        "//tensorflow_serving/core:servable_id",
-        "//tensorflow_serving/session_bundle:signature",
-        "//tensorflow_serving/servables/caffe:caffe_session_bundle",
-        "//tensorflow_serving/servables/caffe:caffe_simple_servers",
-        "//tensorflow_serving/servables/caffe:caffe_signature",
-    ]
-)
-
-#
-# ssd detector
-#
-
-cc_binary(
-    name = "obj_detector_ssd",
-    srcs = ["obj_detector_ssd.cc", "rcnn_utils.cc", "rcnn_utils.h"],
-    linkopts = ["-lm", "-lboost_regex"],
+    name = "obj_detector",
+    srcs = [
+        "obj_detector.cc",
+        "obj_detector_utils.cc",
+        "obj_detector_utils.h"
+    ],
+    linkopts = ["-lm"] + select({
+        ":obj_detector_ssd": ["-lboost_regex"]
+    }),
+    defines = select({
+        ":obj_detector_rcnn": ["WITH_RCNN"],
+        ":obj_detector_ssd": ["WITH_SSD"]
+    }),
     deps = [
         "@grpc//:grpc++",
         "@org_tensorflow//tensorflow/core:lib",

@@ -1,4 +1,4 @@
-#include "tensorflow_serving/example/rcnn_utils.h"
+#include "tensorflow_serving/example/obj_detector_utils.h"
 
 #include <stddef.h>
 #include <algorithm>
@@ -19,28 +19,42 @@ using tensorflow::string;
 using tensorflow::Tensor;
 using tensorflow::TensorShape;
 
-namespace {
+// for each image in the minibatch, perform means subtraction
+tensorflow::Status BatchMeansSubtract(
+    const pixel_means_type& bgr_mean,
+    Tensor* im_batch_blob) {
+  using namespace Eigen;
 
-  const std::vector<string>* output_tensor_names() {
-    static std::vector<string> output {
-      "cls_prob",
-      "bbox_pred",
-      "rois",
-      "__labels__"
-    };
-    return &output;
+  auto im_batch_bgr = im_batch_blob->matrix<float>();
+  if (im_batch_bgr.dimension(1) % 3 != 0) {
+    return tensorflow::errors::Internal(
+        tensorflow::strings::StrCat("given batch isn't bgr image data"));
   }
 
-  const Eigen::Tensor<float, 2, Eigen::RowMajor>* pixel_means_bgr() {
-    static Eigen::Tensor<float, 2, Eigen::RowMajor> t(3, 1);
-    t(0,0) = 102.9801 /* B */;
-    t(1,0) = 115.9465 /* G */;
-    t(2,0) = 122.7717 /* R */;
-    return &t;
+  int batch_size = im_batch_bgr.dimension(0);
+  int im_buff_size = im_batch_bgr.dimension(1);
+
+  for (auto i = 0; i < batch_size; ++i) {
+    DSizes<ptrdiff_t, 2> off(i, 0);
+    DSizes<ptrdiff_t, 2> ext(1, im_buff_size);
+
+    // reshape buffer to 2d-planar
+    Eigen::Tensor<float, 2>::Dimensions dim2(3, im_buff_size / 3);
+    auto im_bgr = im_batch_bgr.slice(off, ext).reshape(dim2);
+
+    // apply mean-subtraction
+    im_bgr -= bgr_mean.broadcast(Eigen::array<int64_t, 2>{{ 1, dim2[1] }});
   }
+  return tensorflow::Status::OK();
 }
 
 namespace {
+const std::vector<string>* output_tensor_names() {
+  static std::vector<string> output {
+    "cls_prob", "bbox_pred", "rois", "__labels__"
+  };
+  return &output;
+}
 
 static inline void DecreasingArgSort(const std::vector<float>& values,
                                      std::vector<int>* indices) {
@@ -126,7 +140,6 @@ static inline void nms(
     }
   }
 }
-
 } // namespace
 
 namespace rcnn
@@ -225,30 +238,7 @@ static inline tensorflow::Status bbox_transform_inv(const Tensor& rois_blob,
   return tensorflow::Status::OK();
 }
 
-// for each image in the minibatch, perform means subtraction
-tensorflow::Status BatchBGRMeansSubtract(Tensor* im_batch_blob) {
-  using namespace Eigen;
 
-  auto im_batch_bgr = im_batch_blob->matrix<float>();
-  if (im_batch_bgr.dimension(1) % 3 != 0) {
-    return tensorflow::errors::Internal(
-        tensorflow::strings::StrCat("given batch isn't bgr image data"));
-  }
-
-  int batch_size = im_batch_bgr.dimension(0);
-  int im_buff_size = im_batch_bgr.dimension(1);
-
-  for (auto i = 0; i < batch_size; ++i) {
-    DSizes<ptrdiff_t, 2> off(i, 0);
-    DSizes<ptrdiff_t, 2> ext(1, im_buff_size);
-
-    Eigen::Tensor<float, 2>::Dimensions dim2(3, im_buff_size / 3);
-    auto im_bgr = im_batch_bgr.slice(off, ext).reshape(dim2);
-
-    im_bgr -= pixel_means_bgr()->broadcast(Eigen::array<int64_t, 2>{{ 1, dim2[1] }});
-  }
-  return tensorflow::Status::OK();
-}
 
 tensorflow::Status RunClassification(const Tensor& im_blob,
                                      const Tensor& im_info,
@@ -294,7 +284,8 @@ tensorflow::Status RunClassification(const Tensor& im_blob,
 
 tensorflow::Status ProcessDetections(const Tensor* pred_boxes,
                                      const Tensor* scores,
-                                     std::vector<Detection>* dets) {
+                                     const float detection_threshold,
+                                     std::vector<ObjDetection>* dets) {
   using namespace Eigen;
 
   auto pred_boxes_mat = pred_boxes->matrix<float>();
@@ -321,11 +312,11 @@ tensorflow::Status ProcessDetections(const Tensor* pred_boxes,
       tmp_scores = scores_mat.slice(off, ext);
     }
 
-    nms(tmp_boxes, tmp_scores, 0.3, 0.5, 64,
+    nms(tmp_boxes, tmp_scores, 0.3, detection_threshold, 128, 
         sorted_selected_indices);
 
     for (auto idx : sorted_selected_indices) {
-      dets->emplace_back(Detection {
+      dets->emplace_back(ObjDetection {
           std::array<int, 4>{
             static_cast<int>(tmp_boxes(idx, 0)),
             static_cast<int>(tmp_boxes(idx, 1)),
@@ -337,5 +328,4 @@ tensorflow::Status ProcessDetections(const Tensor* pred_boxes,
   }
   return tensorflow::Status::OK();
 }
-
 } // namespace rcnn
