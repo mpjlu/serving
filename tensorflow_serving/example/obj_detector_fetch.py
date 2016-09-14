@@ -104,7 +104,7 @@ def fetch_rcnn(base_path):
   print('Downloading Faster R-CNN demo models (695M)...')
   filename = maybe_download(DEMO_MODEL_URL, DEMO_MODEL_FILE, base_path)
   data_path = join(repo_path, 'data')
-  untar(filename, data_path)
+  untar(filename, data_path, True)
 
 
 def fetch_ssd(base_path):

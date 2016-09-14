@@ -247,7 +247,8 @@ cc_binary(
         "obj_detector_utils.h"
     ],
     linkopts = ["-lm"] + select({
-        ":obj_detector_ssd": ["-lboost_regex"]
+        ":obj_detector_ssd": ["-lboost_regex"],
+        ":obj_detector_rcnn": []
     }),
     defines = select({
         ":obj_detector_rcnn": ["WITH_RCNN"],

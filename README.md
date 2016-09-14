@@ -146,8 +146,8 @@ This example exposes a single service implementation supporting both _[Faster R-
 #### 1. Fetch, build and setup demo models:
 
 ```
-> ./bazel-bin/tensorflow_serving/example/obj_detector_fetch --type=[ssd/rcnn] \
-        --export-dir=/tmp/obj_detector --version=1 /tmp/obj_detector_data
+> bazel run -s //tensorflow_serving/example:obj_detector_fetch -- --export-path=/tmp/obj_detector \
+    --version=1 --type=[ssd/rcnn] /tmp/obj_detector_data
 ```
 
 #### 2. Build the detector:
@@ -157,7 +157,7 @@ Build the detector service. Note since each backend requires different version o
 - ##### 2.a. SSD
 
     ```
-    > bazel build -c opt --define=detector=ssd --define=caffe_flavour=ssd \
+    > bazel build [--config=cuda] -c opt --define=detector=ssd --define=caffe_flavour=ssd \
         //tensorflow_serving/example:obj_detector
     ```
 
@@ -166,13 +166,13 @@ Build the detector service. Note since each backend requires different version o
     ```
     > pushd /tmp/obj_detector_data/rcnn/lib && python setup.py build_ext --inplace && popd
 
-    > bazel build -c opt --define=detector=rcnn --define=caffe_flavour=rcnn --define=caffe_python_layer=ON \
-        //tensorflow_serving/example:obj_detector
+    > bazel build [--config=cuda] -c opt --define=detector=rcnn --define=caffe_flavour=rcnn \
+        --define=caffe_python_layer=ON //tensorflow_serving/example:obj_detector
     ```
 
 #### 3. Run the server
 
-    > bazel-bin/tensorflow_serving/example/obj_detector [--resolution=<H>x<W>] --port=9000 \
+    > ./bazel-bin/tensorflow_serving/example/obj_detector [--resolution=<H>x<W>] --port=9000 \
         /tmp/obj_detector
 
 The `--resolution` option specifies what size images the service will accept. The loaded model will be reshaped to accept images of the given dimensions, although you may find that some resolutions produce better results than others. If unspecified, the service will try to select sensible defaults.
