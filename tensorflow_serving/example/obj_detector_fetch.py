@@ -61,8 +61,8 @@ def link(src, dst):
   if not os.path.exists(dst):
     os.symlink(src, dst)
 
-def untar(src, dst):
-  if not os.path.exists(dst):
+def untar(src, dst, force=False):
+  if not os.path.exists(dst) or force:
     print('Extracting "%s" => "%s"' % (src, dst))
     with tarfile.open(src) as tar:
         tar.extractall(path=dst)
@@ -92,10 +92,10 @@ def fetch_rcnn(base_path):
 
   # 1. Download py-faster-rcnn repository (as a tar.gz)
   print('Downloading repository...', SOURCE_URL)
-  filename = maybe_download(SOURCE_URL, '%s.tar.gz' % REPO_NAME, base_path)
-  untar(filename, base_path)
+  filepath = maybe_download(SOURCE_URL, '%s-%s.tar.gz' % (REPO_NAME, COMMIT_SHA1), base_path)
+  untar(filepath, base_path, True)
 
-  # 2. standardize the directory structure slightly
+  # 2. standardize the library directory structure
   src = join(base_path, '%s-%s/' % (REPO_NAME, COMMIT_SHA1))
   repo_path = join(base_path, 'rcnn')
   link(src, repo_path)
