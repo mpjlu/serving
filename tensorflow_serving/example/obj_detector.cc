@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ============================================================================ */
 
-// A gRPC server that classifies objects within images.
+// A gRPC server that locates and classifies objects within images.
 
 #include <stddef.h>
 #include <unistd.h>
@@ -103,8 +103,10 @@ const string USAGE = StrCat(
 
 #elif WITH_RCNN
 
-  const int32_t MAX_BATCH_SIZE = 1;
-  const int32_t BATCH_TIMEOUT = 0;
+  const char*      TYPE_NAME = "Faster R-CNN";
+  const int32_t    MAX_BATCH_SIZE = 1;
+  const int32_t    BATCH_TIMEOUT = 0;
+  const Resolution DEFAULT_RES{ 600, 800 };
 
   inline ::pixel_means_type means() {
     pixel_means_type m;
@@ -116,8 +118,10 @@ const string USAGE = StrCat(
 
 #elif WITH_SSD
 
-  const int32_t MAX_BATCH_SIZE = 24;
-  const int32_t BATCH_TIMEOUT = 1000 * 8 /* 8ms */;
+  const char*      TYPE_NAME = "SSD";
+  const int32_t    MAX_BATCH_SIZE = 24;
+  const int32_t    BATCH_TIMEOUT = 1000 * 8 /* 8ms */;
+  const Resolution DEFAULT_RES{ 300, 300 };
 
   inline ::pixel_means_type means() {
     pixel_means_type m;
@@ -484,7 +488,7 @@ void parse_cmdline(
   if (!parse_result) {
     LOG(FATAL) << "Error parsing command line flags.";
   }
-  { // resolution
+  if (resolution_str.size() > 0) {
     std::stringstream ss(resolution_str);
     std::vector<int32_t> dims;
 
@@ -502,6 +506,9 @@ void parse_cmdline(
     }
     resolution = std::make_pair(dims[0] /* h */, dims[1] /* w */);
   }
+  else {
+    resolution = DEFAULT_RES;
+  }
   if (argc != 2) {
     LOG(FATAL) << USAGE;
   }
@@ -512,10 +519,14 @@ void parse_cmdline(
 
 int main(int argc, char** argv) {
   int32_t port;
-  std::string resolution_str;
-  Resolution resolution;
+  Resolution res;
   std::string export_base_path;
-  parse_cmdline(argc, argv, port, resolution, export_base_path);
+  parse_cmdline(argc, argv, port, res, export_base_path);
+
+  LOG(INFO)
+    << "Detector type: " << TYPE_NAME
+    << "\n  Input resolution: h=" << std::get<0>(res)
+    << "px, w=" << std::get<1>(res) << "px";
 
   // Initialize Caffe subsystem
   tensorflow::serving::CaffeGlobalInit(&argc, &argv);
@@ -542,8 +553,8 @@ int main(int argc, char** argv) {
     assert(shape != nullptr);
     shape->add_dim()->set_size(1);
     shape->add_dim()->set_size(kNumChannels);
-    shape->add_dim()->set_size(std::get<0>(resolution));
-    shape->add_dim()->set_size(std::get<1>(resolution));
+    shape->add_dim()->set_size(std::get<0>(res));
+    shape->add_dim()->set_size(std::get<1>(res));
   }
   std::unique_ptr<tensorflow::serving::Manager> manager;
   tensorflow::Status status = tensorflow::serving::simple_servers::
@@ -561,6 +572,6 @@ int main(int argc, char** argv) {
   } while (ready_ids.empty());
 
   // Run the service.
-  RunServer(port, ready_ids[0].name, resolution, std::move(manager));
+  RunServer(port, ready_ids[0].name, res, std::move(manager));
   return 0;
 }
