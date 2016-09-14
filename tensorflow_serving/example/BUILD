@@ -222,7 +222,7 @@ py_binary(
 )
 
 #
-# detector services with faster-rcnn or SSD backend.
+# detector services with Faster R-CNN or SSD backend.
 #
 
 config_setting(
@@ -235,12 +235,8 @@ config_setting(
 )
 
 py_binary(
-    name = "rcnn_fetch",
-    srcs = ["rcnn_fetch.py"],
-)
-py_binary(
-    name = "rcnn_setup",
-    srcs = ["rcnn_setup.py"],
+    name = "obj_detector_fetch",
+    srcs = ["obj_detector_fetch.py"],
 )
 
 cc_binary(

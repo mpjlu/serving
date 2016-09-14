@@ -39,15 +39,21 @@ from grpc.framework.interfaces.face.face import AbortionError
 from tensorflow_serving.example import obj_detector_pb2
 from client_util import InferenceStats
 
-tf.app.flags.DEFINE_integer('concurrency', 1,
-                            'maximum number of concurrent inference requests')
-tf.app.flags.DEFINE_integer('num_tests', -1, 'Number of test images')
-tf.app.flags.DEFINE_string('server', '', 'mnist_inference service host:port')
-tf.app.flags.DEFINE_bool('verbose', False, 'print detections to stdout')
-tf.app.flags.DEFINE_bool('gui', False, 'show detections in a gui')
-tf.app.flags.DEFINE_string('img', 'https://upload.wikimedia.org/wikipedia/commons/4/4f/G8_Summit_working_session_on_global_and_economic_issues_May_19%2C_2012.jpg',
-                           'url or path of an image to classify')
-tf.app.flags.DEFINE_string('imgdir', None, 'path to a directory of images')
+tf.app.flags.DEFINE_integer(
+  'concurrency', 1,'maximum number of concurrent inference requests')
+tf.app.flags.DEFINE_integer(
+  'num_tests', -1, 'Number of test images')
+tf.app.flags.DEFINE_string(
+  'server', '', 'obj_detector service host:port')
+tf.app.flags.DEFINE_bool(
+  'verbose', False, 'print detections to stdout')
+tf.app.flags.DEFINE_bool(
+  'gui', False, 'show detections in a gui')
+tf.app.flags.DEFINE_string(
+  'img', 'https://upload.wikimedia.org/wikipedia/commons/4/4f/G8_Summit_working_session_on_global_and_economic_issues_May_19%2C_2012.jpg',
+  'url or path of an image to classify')
+tf.app.flags.DEFINE_string(
+  'imgdir', None, 'path to a gallery of images')
 
 FLAGS = tf.app.flags.FLAGS
 
