@@ -1,4 +1,5 @@
-// Protobuf definition of RCNN model classification server.
+// Protobuf definition of obj_detector
+// localisation and classification server.
 
 syntax = "proto3";
 
@@ -16,10 +17,10 @@ message Detection {
 
     // score for this detection
     float score = 6;
-}
+};
 
 message DetectRequest {
-    // input image with shape [c = 3, h, w] and BGR channel order
+    // input planar image with shape [c = 3, h, w] and BGR channel order
     bytes image_data = 1;
 
     // minimum score permitted for classification
@@ -30,6 +31,15 @@ message DetectResponse {
     repeated Detection detections = 1;
 };
 
+message ConfigurationRequest {
+};
+
+message DetectConfiguration {
+	// input image shape, [c, h, w]
+    repeated int32 input_image_shape = 1;
+};
+
 service DetectService {
+	rpc GetConfiguration(ConfigurationRequest) returns (DetectConfiguration);
     rpc Detect(DetectRequest) returns (DetectResponse);
-}
+};

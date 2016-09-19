@@ -63,6 +63,7 @@ limitations under the License.
 
 // utils (mostly to support faster-rcnn)
 #include "tensorflow_serving/example/obj_detector_utils.h"
+#include "tensorflow_serving/example/rpc_utils.h"
 
 using grpc::InsecureServerCredentials;
 using grpc::Server;
@@ -79,16 +80,13 @@ using tensorflow::TensorShape;
 using tensorflow::strings::StrCat;
 using tensorflow::serving::ClassificationSignature;
 
-using tensorflow::serving::DetectRequest;
-using tensorflow::serving::DetectResponse;
-using tensorflow::serving::DetectService;
-using tensorflow::serving::Detection;
-
 using Resolution = std::pair<int32_t /* h */, int32_t /* w */>;
 using BundleType = tensorflow::serving::CaffeSessionBundle;
 
-namespace {
 
+
+namespace
+{
 const string USAGE = StrCat(
     "Usage: obj_detector --port=<port> --resolution=<HxW> [--help]  /path/to/export",
     "\n",
@@ -107,6 +105,7 @@ const string USAGE = StrCat(
   const int32_t    MAX_BATCH_SIZE = 1;
   const int32_t    BATCH_TIMEOUT = 0;
   const Resolution DEFAULT_RES{ 600, 800 };
+  const int        NUM_CHANNELS = 3;
 
   inline ::pixel_means_type means() {
     pixel_means_type m;
@@ -122,6 +121,7 @@ const string USAGE = StrCat(
   const int32_t    MAX_BATCH_SIZE = 24;
   const int32_t    BATCH_TIMEOUT = 1000 * 8 /* 8ms */;
   const Resolution DEFAULT_RES{ 300, 300 };
+  const int        NUM_CHANNELS = 3;
 
   inline ::pixel_means_type means() {
     pixel_means_type m;
@@ -133,74 +133,49 @@ const string USAGE = StrCat(
 
 #endif
 
-// only support bgr images for simpicity.
-const int kNumChannels = 3;
+// Creates a gRPC Status from a TensorFlow Status.
+Status ToGRPCStatus(const tensorflow::Status& status) {
+  return Status(static_cast<grpc::StatusCode>(status.code()),
+                status.error_message());
+}
 
-class DetectServiceImpl;
+namespace DetectorStub
+{
+  using AsyncService =
+      tensorflow::serving::DetectService::AsyncService;
 
-// Class encompassing the state and logic needed to serve a request.
-class CallData {
- public:
-  CallData(DetectServiceImpl* service_impl,
-           DetectService::AsyncService* service,
-           ServerCompletionQueue* cq);
+  constexpr rpc_util::UnaryRequestStub<
+      AsyncService, tensorflow::serving::DetectRequest, tensorflow::serving::DetectResponse
+    > Detect { &AsyncService::RequestDetect };
 
-  void Proceed();
+  constexpr rpc_util::UnaryRequestStub<
+    AsyncService, tensorflow::serving::ConfigurationRequest, tensorflow::serving::DetectConfiguration
+    > GetConfiguration { &AsyncService::RequestGetConfiguration };
+}
 
-  void Finish(Status status);
-
-  const DetectRequest& request() { return request_; }
-
-  DetectResponse* mutable_response() { return &response_; }
-
- private:
-  // Service implementation.
-  DetectServiceImpl* service_impl_;
-
-  // The means of communication with the gRPC runtime for an asynchronous
-  // server.
-  DetectService::AsyncService* service_;
-  // The producer-consumer queue where for asynchronous server notifications.
-  ServerCompletionQueue* cq_;
-  // Context for the rpc, allowing to tweak aspects of it such as the use
-  // of compression, authentication, as well as to send metadata back to the
-  // client.
-  ServerContext ctx_;
-
-  // What we get from the client.
-  DetectRequest request_;
-  // What we send back to the client.
-  DetectResponse response_;
-
-  // The means to get back to the client.
-  ServerAsyncResponseWriter<DetectResponse> responder_;
-
-  // Let's implement a tiny state machine with the following states.
-  enum CallStatus { CREATE, PROCESS, FINISH };
-  CallStatus status_;  // The current serving state.
-};
-
-// A Task holds all of the information for a single inference request.
-struct Task : public tensorflow::serving::BatchTask {
-  ~Task() override = default;
-  size_t size() const override { return 1; }
-
-  Task(CallData* calldata_arg)
-      : calldata(calldata_arg) {}
-
-  CallData* calldata;
-};
-
+struct Task;
 class DetectServiceImpl final {
  public:
   DetectServiceImpl(const string& servable_name,
                     const Resolution input_resolution,
                     std::unique_ptr<tensorflow::serving::Manager> manager);
 
-  void Detect(CallData* call_data);
-  void DoDetectInBatch(std::unique_ptr<tensorflow::serving::Batch<Task>> batch);
+  void Serve(::grpc::ServerCompletionQueue* cq,
+             DetectorStub::AsyncService* stub);
 
-  // Name of the servable to use for inference.
+ private:
+  void GetConfiguration(
+      decltype(DetectorStub::GetConfiguration)::Handle* call_data);
+
+  void Detect(
+      decltype(DetectorStub::Detect)::Handle* call_data);
+
+  void DoDetectInBatch(
+      std::unique_ptr<tensorflow::serving::Batch<Task>> batch);
+
+  tensorflow::Status DoDetectInBatch_impl(
+      const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch);
+
   const tensorflow::serving::ServableRequest servable_req_;
   const Resolution input_resolution_;
   const size_t img_buffsize_;
@@ -209,51 +184,18 @@ class DetectServiceImpl final {
   std::unique_ptr<tensorflow::serving::Manager> manager_;
   std::unique_ptr<tensorflow::serving::BasicBatchScheduler<Task>>
       batch_scheduler_;
- private:
-  tensorflow::Status DoDetectInBatch_impl(
-    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch);
 };
 
-// Take in the "service" instance (in this case representing an asynchronous
-// server) and the completion queue "cq" used for asynchronous communication
-// with the gRPC runtime.
-CallData::CallData(DetectServiceImpl* service_impl,
-                   DetectService::AsyncService* service,
-                   ServerCompletionQueue* cq)
-    : service_impl_(service_impl),
-      service_(service), cq_(cq), responder_(&ctx_), status_(CREATE) {
-  // Invoke the serving logic right away.
-  Proceed();
-}
+// A Task holds all of the information for a single inference request.
+struct Task : public tensorflow::serving::BatchTask {
+  ~Task() override = default;
+  size_t size() const override { return 1; }
 
-void CallData::Proceed() {
-  if (status_ == CREATE) {
-    // As part of the initial CREATE state, we *request* that the system
-    // start processing Detect requests. In this request, "this" acts are
-    // the tag uniquely identifying the request (so that different CallData
-    // instances can serve different requests concurrently), in this case
-    // the memory address of this CallData instance.
-    service_->RequestDetect(&ctx_, &request_, &responder_, cq_, cq_, this);
-    // Make this instance progress to the PROCESS state.
-    status_ = PROCESS;
-  } else if (status_ == PROCESS) {
-    // Spawn a new CallData instance to serve new clients while we process
-    // the one for this CallData. The instance will deallocate itself as
-    // part of its FINISH state.
-    new CallData(service_impl_, service_, cq_);
-    // Start processing.
-    service_impl_->Detect(this);
-  } else {
-    GPR_ASSERT(status_ == FINISH);
-    // Once in the FINISH state, deallocate ourselves (CallData).
-    delete this;
-  }
-}
+  Task(decltype(DetectorStub::Detect)::Handle* calldata_arg)
+      : calldata(calldata_arg) {}
 
-void CallData::Finish(Status status) {
-  status_ = FINISH;
-  responder_.Finish(response_, status, this);
-}
+  decltype(DetectorStub::Detect)::Handle* calldata;
+};
 
 DetectServiceImpl::DetectServiceImpl(
     const string& servable_name,
@@ -261,7 +203,7 @@ DetectServiceImpl::DetectServiceImpl(
     std::unique_ptr<tensorflow::serving::Manager> manager)
   : servable_req_(tensorflow::serving::ServableRequest::Latest(servable_name))
   , input_resolution_(input_resolution)
-  , img_buffsize_(kNumChannels * std::get<0>(input_resolution) * std::get<1>(input_resolution))
+  , img_buffsize_(NUM_CHANNELS * std::get<0>(input_resolution) * std::get<1>(input_resolution))
   , img_pixel_means_(means())
   , manager_(std::move(manager))
 {
@@ -278,13 +220,39 @@ DetectServiceImpl::DetectServiceImpl(
       &batch_scheduler_));
 }
 
-// Creates a gRPC Status from a TensorFlow Status.
-Status ToGRPCStatus(const tensorflow::Status& status) {
-  return Status(static_cast<grpc::StatusCode>(status.code()),
-                status.error_message());
+void DetectServiceImpl::Serve(
+    ::grpc::ServerCompletionQueue* cq, DetectorStub::AsyncService* s)
+{
+  rpc_util::begin_async_unary(this,
+    DetectorStub::Detect, s, cq,
+    [](DetectServiceImpl* impl, decltype(DetectorStub::Detect)::Handle* data) {
+      impl->Detect(data);
+    });
+
+  rpc_util::begin_async_unary(this,
+    DetectorStub::GetConfiguration, s, cq,
+    [](DetectServiceImpl* impl, decltype(DetectorStub::GetConfiguration)::Handle* data) {
+      impl->GetConfiguration(data);
+    });
 }
 
-void DetectServiceImpl::Detect(CallData* calldata) {
+void DetectServiceImpl::GetConfiguration(
+    decltype(DetectorStub::GetConfiguration)::Handle* call_data)
+{
+  int32_t w, h;
+  std::tie(w, h) = input_resolution_;
+
+  auto in_spec = call_data->mutable_response()->mutable_input_image_shape();
+  in_spec->Add(NUM_CHANNELS);
+  in_spec->Add(h);
+  in_spec->Add(w);
+
+  call_data->Finish(Status::OK);
+}
+
+void DetectServiceImpl::Detect(
+    decltype(DetectorStub::Detect)::Handle* calldata)
+{
   // Verify input.
   if (calldata->request().image_data().size() != img_buffsize_) {
     calldata->Finish(
@@ -294,7 +262,6 @@ void DetectServiceImpl::Detect(CallData* calldata) {
                    ", got ", calldata->request().image_data().size())));
     return;
   }
-
   // Create and submit a task to the batch scheduler.
   std::unique_ptr<Task> task(new Task(calldata));
   tensorflow::Status status = batch_scheduler_->Schedule(&task);
@@ -306,7 +273,8 @@ void DetectServiceImpl::Detect(CallData* calldata) {
 }
 
 void DetectServiceImpl::DoDetectInBatch(
-    std::unique_ptr<tensorflow::serving::Batch<Task>> batch) {
+    std::unique_ptr<tensorflow::serving::Batch<Task>> batch) 
+{
   // either the entire batch succeeds or fails
   Status status = ToGRPCStatus(DoDetectInBatch_impl(batch));
   // complete the task with the given status
@@ -317,7 +285,8 @@ void DetectServiceImpl::DoDetectInBatch(
 }
 
 tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
-    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch) {
+    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch)
+{
   batch->WaitUntilClosed();
   if (batch->empty()) { return tensorflow::Status::OK(); }
 
@@ -336,8 +305,8 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
     }
   }
 
-  int32_t h = std::get<0>(input_resolution_);
-  int32_t w = std::get<1>(input_resolution_);
+  int32_t w, h;
+  std::tie(w, h) = input_resolution_;
 
   tensorflow::serving::ServableHandle<BundleType> bundle;
   TF_RETURN_IF_ERROR(manager_->GetServableHandle(servable_req_, &bundle));
@@ -405,7 +374,10 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
   const auto labels_mat = class_labels.matrix<string>();
   for (int i = 0; i < batch_size; ++i) {
     auto calldata = batch->mutable_task(i)->calldata;
-    DetectResponse* resp = calldata->mutable_response();
+
+    decltype(DetectorStub::Detect)::Response* resp =
+        calldata->mutable_response();
+
     for (const auto& det : dets[i]) {
       if (det.class_idx == 0)
         continue;
@@ -413,7 +385,7 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
       if (det.score < batch_min_thresholds[i])
         continue;
 
-      Detection* det_proto = resp->add_detections();
+      tensorflow::serving::Detection* det_proto = resp->add_detections();
       det_proto->set_roi_x1(det.roi_rect[0]);
       det_proto->set_roi_y1(det.roi_rect[1]);
       det_proto->set_roi_x2(det.roi_rect[2]);
@@ -422,15 +394,15 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
       det_proto->set_class_label(labels_mat(0, det.class_idx));
     }
   }
-
   return tensorflow::Status::OK();
 }
 
 void HandleRpcs(DetectServiceImpl* service_impl,
-                DetectService::AsyncService* service,
-                ServerCompletionQueue* cq) {
-  // Spawn a new CallData instance to serve new clients.
-  new CallData(service_impl, service, cq);
+                DetectorStub::AsyncService* service,
+                ServerCompletionQueue* cq)
+{
+  service_impl->Serve(cq, service);
+
   void* tag;  // uniquely identifies a request.
   bool ok;
   while (true) {
@@ -439,7 +411,7 @@ void HandleRpcs(DetectServiceImpl* service_impl,
     // memory address of a CallData instance.
     cq->Next(&tag, &ok);
     GPR_ASSERT(ok);
-    static_cast<CallData*>(tag)->Proceed();
+    static_cast<rpc_util::RpcHandleBase*>(tag)->Proceed();
   }
 }
 
@@ -453,7 +425,7 @@ void RunServer(
   // "0.0.0.0" is the way to listen on localhost in gRPC.
   const string server_address = "0.0.0.0:" + std::to_string(port);
 
-  DetectService::AsyncService service;
+  DetectorStub::AsyncService service;
   ServerBuilder builder;
   std::shared_ptr<grpc::ServerCredentials> creds = InsecureServerCredentials();
   builder.AddListeningPort(server_address, creds);
@@ -552,7 +524,7 @@ int main(int argc, char** argv) {
     // reshape the network for the given input resolution.
     assert(shape != nullptr);
     shape->add_dim()->set_size(1);
-    shape->add_dim()->set_size(kNumChannels);
+    shape->add_dim()->set_size(NUM_CHANNELS);
     shape->add_dim()->set_size(std::get<0>(res));
     shape->add_dim()->set_size(std::get<1>(res));
   }

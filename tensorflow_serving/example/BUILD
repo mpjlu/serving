@@ -244,7 +244,8 @@ cc_binary(
     srcs = [
         "obj_detector.cc",
         "obj_detector_utils.cc",
-        "obj_detector_utils.h"
+        "obj_detector_utils.h",
+        "rpc_utils.h"
     ],
     linkopts = ["-lm"] + select({
         ":obj_detector_ssd": ["-lboost_regex"],

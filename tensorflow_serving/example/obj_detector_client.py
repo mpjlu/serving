@@ -67,13 +67,17 @@ def connect(hostport):
 
 def handshake(stub):
   """
-  No handshake required in this simple example; a more
-  complete implementation may retrieve service-specific
-  cofigurations such as input-image shape, number of
-  channels etc.
+  retrieve service-specific cofigurations such as 
+  input-image shape, number of channels etc.
   """
-  return (300, 300, 3)
+  req = obj_detector_pb2.ConfigurationRequest()
+  result = stub.GetConfiguration(req, 5)
+  assert len(result.input_image_shape) == 3 # this client only supports rgb
   
+  # return the input shape
+  return (result.input_image_shape[0],
+          result.input_image_shape[1],
+          result.input_image_shape[2])
 
 def im_transpose(im):
   """
@@ -91,7 +95,9 @@ def im_scale_to_fit(im, out_shape):
   Returns the rescaled image
   """
   h, w, c = im.shape
-  out_h, out_w, _ = out_shape
+  out_c, out_h, out_w = out_shape
+
+  assert(out_c == 3)
 
   scale = min(float(out_h) / h, float(out_w) / w)
   im2 = transform.resize(im, numpy.floor((h * scale, w * scale)),
@@ -197,6 +203,8 @@ def main(_):
   # connect and get input image shape
   stub = connect(FLAGS.server)
   input_shape = handshake(stub)
+
+  print ("Connected. Input Shape: {0}".format(input_shape))
 
   # load the image gallery 
   ims = [im_scale_to_fit(io.imread(path), input_shape) for path in paths]
