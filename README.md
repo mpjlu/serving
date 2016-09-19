@@ -180,7 +180,7 @@ The `--resolution` option specifies what size images the service will accept. Th
 #### 4. Build & run the client (python)
 
     > bazel build -c opt //tensorflow_serving/example:obj_detector_client
-    > bazel-bin/tensorflow_serving/example/rcnn_client --server=localhost:9000
+    > bazel-bin/tensorflow_serving/example/obj_detector_client --server=localhost:9000
 
 The client has a number of options:
 
@@ -194,7 +194,7 @@ The client has a number of options:
 
 For example, to perform a basic load test using a gallery of images located at `/tmp/images`:
 
-    > bazel-bin/tensorflow_serving/example/rcnn_client --server=localhost:9000 \
+    > bazel-bin/tensorflow_serving/example/obj_detector_client --server=localhost:9000 \
         --imgdir=/tmp/images --num_tests=250 --concurrency=8
 
 Which will produce latency and throughput statistics over 250 requests.
