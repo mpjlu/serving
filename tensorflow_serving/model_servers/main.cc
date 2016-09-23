@@ -230,6 +230,11 @@ int BuildAndRun(tensorflow::int32 port,
                 bool enable_batching,
                 tensorflow::string model_name,
                 tensorflow::string model_base_path) {
+  LOG(INFO)
+    << "Using Servable '"
+    << ServableTraits<S>::name()
+    << "'";
+
   ModelServerConfig config =
       BuildSingleModelConfig<S>(model_name, model_base_path);
 

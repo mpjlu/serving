@@ -69,11 +69,11 @@ To run tests related to the Caffe servable implementation, run:
 
 ---
 
-## *Example*: MNIST handwriting recognition
+## *Example*: MNIST Handwriting Recognition
 
-The `mnist_inference` example service implementations have been altered in this fork to run with the Caffe runtime when built with the `--define=runtime=caffe` option; making it easy to see the required changes to serve with Caffe rather than Tensorflow. Typically less than 10 lines of code need altering.
+The Tensorflow model server implementation has been altered in this fork to run with either Caffe or/and Tensorflow. The steps in this example are based on the original TensorFlow-only tutorial [here](tensorflow_serving/g3doc/serving_basic.md).
 
-#### 1. Download the pre-trained caffe model:
+#### 1. Download the Pre-trained Caffe Model:
 
     > bazel run //tensorflow_serving/servables/caffe/test_data:mnist_caffe_fetch -- \
         --version 1 /tmp/mnist_export_caffe
@@ -82,42 +82,41 @@ There's nothing special about this pretrained model, and it can be re-generated 
 
 The contents of any pretrained model must include `deploy.prototxt` `weights.caffemodel` files, which as you could imagine, contain the deployable model definition and a single training snapshot. Additionally, you can include a `classlabels.txt` file containing line delimited class labels for the output of the model.
 
-#### 2. Build and run an MNIST service:
+#### 2. Build the Model Server
 
-Select one of the two mnist services to build and run ('Basic' or 'Advanced'.) You should be familiar with the companion TFS tutorials ([Basic](tensorflow_serving/g3doc/serving_basic.md), [Advanced](tensorflow_serving/g3doc/serving_advanced.md)) before serving Caffe models with TFS. Equivalent instructions for serving the mnist examples with caffe follow; note that the only change required is `--define=runtime=caffe` when building.
+```
+> bazel build -c opt //tensorflow_serving/model_servers:model_server
+```
 
-- ##### 2.a. Basic service
+The `model_server` in this fork has learned a `--servable=<servable name>` option which supports `tensorflow` or `caffe` values. So, to begin serving the Caffe model(s),
 
-    ```
-    > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference
-    > ./bazel-bin/tensorflow_serving/example/mnist_inference --port=9000 /tmp/mnist_export_caffe/00000001/
-    ```
+```
+>  bazel-bin/tensorflow_serving/model_servers/model_server --port=9000 \
+    --model_name=mnist --servable=caffe --model_base_path=/tmp/mnist_export_caffe
+```
 
-    *Sample output:*
-    ```
-    I Backend set to Caffe
-    I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
-    I Caffe execution mode: CPU
-    I Loaded Network:
-        name: LeNet
-        inputs: 1
-        outputs: 1
-        initial batch-size: 1
-        output classes: Tensor<type: string shape: [10] values: Zero One Two...>
-    I Running restore op for CaffeSessionBundle
-    I Done loading SessionBundle
-    I Wrapping SessionBundle session to perform batch processing
-    I Running...
-    ```
+*Sample output:*
 
-- ##### 2.b. Advanced service
-
-    ```
-    > bazel build -c opt --define=runtime=caffe //tensorflow_serving/example:mnist_inference_2
-    > ./bazel-bin/tensorflow_serving/example/mnist_inference_2 --port=9000 /tmp/mnist_export_caffe
-    ```
+```
+I Using servable 'caffe'
+...
+I Attempting to load a SessionBundle from: /tmp/mnist_export_caffe/00000001/
+I Caffe execution mode: CPU
+I Loaded Network:
+    name: LeNet
+    inputs: 1
+    outputs: 1
+    initial batch-size: 1
+    output classes: Tensor<type: string shape: [10] values: Zero One Two...>
+I Running restore op for CaffeSessionBundle
+I Done loading SessionBundle
+I Wrapping SessionBundle session to perform batch processing
+I Running...
+```
 
 #### 3. Build and run the client
+
+This client is servable-agnostic; it supports both Caffe and TensorFlow servers without modification.
 
 ```
 > bazel build -c opt //tensorflow_serving/example:mnist_client
@@ -206,7 +205,7 @@ Which will produce latency and throughput statistics over 250 requests.
 
 ### How do I use my own Fork of Caffe?
 
-If you intend to use a fork of Caffe which contains (for example) custom layers, you can alter `tensorflow_serving/workspace.bzl` to point to the file/git location of your fork.
+If you intend to use a fork of Caffe which contains (for example) custom layers, you can add one in `tensorflow_serving/workspace.bzl` which points to the file/git location of your fork.
 
 ## Misc. Development notes
 
