@@ -25,11 +25,6 @@ filegroup(
     ),
 )
 
-config_setting(
-    name = "use_caffe",
-    values = {"define": "runtime=caffe"},
-)
-
 serving_proto_library(
     name = "mnist_inference_proto",
     srcs = ["mnist_inference.proto"],
@@ -54,79 +49,6 @@ py_binary(
         "@org_tensorflow//tensorflow:tensorflow_py",
         "@org_tensorflow//tensorflow/contrib/session_bundle:exporter",
     ],
-)
-
-cc_binary(
-    name = "mnist_inference",
-    srcs = [
-        "mnist_inference.cc",
-    ],
-    linkopts = ["-lm"],
-    defines = select({
-        ":use_caffe": ["USE_CAFFE"],
-        "//conditions:default": []
-    }),
-    deps = [
-        ":mnist_inference_proto",
-        "//tensorflow_serving/session_bundle",
-        "//tensorflow_serving/session_bundle:manifest_proto",
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:lib",
-    ] + select({
-        ":use_caffe": [
-            "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
-            "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
-            "//tensorflow_serving/servables/caffe:caffe_session_bundle",
-            "//tensorflow_serving/servables/caffe:caffe_signature",
-        ],
-        "//conditions:default": [
-            "@org_tensorflow//tensorflow/core:core_cpu",
-            "@org_tensorflow//tensorflow/core:framework",
-            "@org_tensorflow//tensorflow/core:protos_all_cc",
-            "@org_tensorflow//tensorflow/core:tensorflow",
-            "//tensorflow_serving/servables/tensorflow:session_bundle_config_proto",
-            "//tensorflow_serving/servables/tensorflow:session_bundle_factory",        
-            "//tensorflow_serving/session_bundle:signature",
-        ]
-    }),
-)
-
-cc_binary(
-    name = "mnist_inference_2",
-    srcs = [
-        "mnist_inference_2.cc",
-    ],
-    linkopts = ["-lm"],
-    defines = select({
-        ":use_caffe": ["USE_CAFFE"],
-        "//conditions:default": []
-    }),
-    deps = [
-        ":mnist_inference_proto",
-        "//tensorflow_serving/batching:basic_batch_scheduler",
-        "//tensorflow_serving/batching:batch_scheduler",
-        "//tensorflow_serving/core:manager",
-        "//tensorflow_serving/core:servable_handle",
-        "//tensorflow_serving/core:servable_id",
-        "//tensorflow_serving/session_bundle:signature",
-        "@grpc//:grpc++",
-        "@org_tensorflow//tensorflow/core:lib",
-    ] + select({
-        ":use_caffe": [
-            "//tensorflow_serving/servables/caffe:caffe_session_bundle",
-            "//tensorflow_serving/servables/caffe:caffe_simple_servers",
-            "//tensorflow_serving/servables/caffe:caffe_signature",
-        ],
-        "//conditions:default": [
-            "//tensorflow_serving/session_bundle",
-            "//tensorflow_serving/session_bundle:manifest_proto",
-            "//tensorflow_serving/servables/tensorflow:simple_servers",
-            "@org_tensorflow//tensorflow/core:framework",
-            "@org_tensorflow//tensorflow/core:protos_all_cc",
-            "@org_tensorflow//tensorflow/core:tensorflow",
-
-        ]
-    }),
 )
 
 py_binary(

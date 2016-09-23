@@ -228,3 +228,18 @@ cc_test(
         "//tensorflow_serving/util:unique_ptr_with_deps",
     ],
 )
+
+cc_library(
+    name = "predict_impl",
+    srcs = ["predict_impl.cc"],
+    hdrs = ["predict_impl.h"],
+    deps = [
+        "//tensorflow_serving/apis:predict_proto",
+        "//tensorflow_serving/core:servable_handle",
+        "//tensorflow_serving/model_servers:server_core",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "//tensorflow_serving/servables/caffe:caffe_signature"
+    ],
+)

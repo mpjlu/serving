@@ -34,6 +34,7 @@ from timeit import default_timer as timer
 from grpc.beta import implementations
 import numpy
 import tensorflow as tf
+from client_util import InferenceStats
 
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2
