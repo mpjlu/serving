@@ -25,7 +25,7 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/types.h"
-#include "tensorflow_serving/session_bundle/manifest.pb.h"
+#include "tensorflow/contrib/session_bundle/manifest.pb.h"
 
 #include "tensorflow_serving/servables/caffe/caffe_serving_session.h"
 
@@ -44,6 +44,7 @@ Status GetSignatures(const CaffeMetaGraphDef& meta_graph_def,
   if (outs.size() == 0)
     return errors::FailedPrecondition("Network has no outputs");
 
+  // compute the default signature.
   if (ins.size() == 1 && outs.size() == 1) {
     if (meta_graph_def.classes.dtype() != DT_INVALID) {
       // classification sig.
@@ -63,13 +64,17 @@ Status GetSignatures(const CaffeMetaGraphDef& meta_graph_def,
       s->mutable_output()->set_tensor_name(outs[0]);
     }
   }
-  else {
-    // generic sig.
-    GenericSignature* s =
-        signatures->mutable_default_signature()->mutable_generic_signature();
+
+  { // compute generic named input signature
+    GenericSignature* s = (*signatures->mutable_named_signatures())["inputs"]
+        .mutable_generic_signature();
 
     for (const auto& in : ins)
       (*s->mutable_map())[in].set_tensor_name(in);
+  }
+  { // compute generic named output signature
+    GenericSignature* s = (*signatures->mutable_named_signatures())["outputs"]
+        .mutable_generic_signature();
 
     for (const auto& out : outs)
       (*s->mutable_map())[out].set_tensor_name(out);
@@ -128,6 +133,21 @@ Status GetGenericSignature(const string& name,
         "Expected a generic signature: ", it->second.DebugString()));
   }
   *signature = it->second.generic_signature();
+  return Status::OK();
+}
+
+Status GetNamedSignature(const string& name,
+                         const CaffeMetaGraphDef& meta_graph_def,
+                         Signature* signature) {
+  Signatures signatures;
+  TF_RETURN_IF_ERROR(GetSignatures(meta_graph_def, &signatures));
+  const auto& it = signatures.named_signatures().find(name);
+  if (it == signatures.named_signatures().end()) {
+    return errors::NotFound(
+        strings::StrCat("Missing signature named \"", name, "\" in: ",
+                        DebugStringIfAvailable(signatures)));
+  }
+  *signature = it->second;
   return Status::OK();
 }
 
