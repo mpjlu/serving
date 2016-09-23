@@ -22,6 +22,7 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorflow/contrib/session_bundle/session_bundle.h"
 #include "tensorflow/core/framework/tensor_testutil.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
@@ -35,7 +36,6 @@ limitations under the License.
 #include "tensorflow_serving/core/test_util/source_adapter_test_util.h"
 #include "tensorflow_serving/servables/tensorflow/session_bundle_config.pb.h"
 #include "tensorflow_serving/servables/tensorflow/session_bundle_source_adapter.pb.h"
-#include "tensorflow_serving/session_bundle/session_bundle.h"
 #include "tensorflow_serving/test_util/test_util.h"
 
 namespace tensorflow {
@@ -79,12 +79,18 @@ class SessionBundleSourceAdapterTest : public ::testing::Test {
 
   void TestSessionBundleSourceAdapter(
       const SessionBundleSourceAdapterConfig& config) {
-    std::unique_ptr<SessionBundleSourceAdapter> adapter;
-    TF_CHECK_OK(SessionBundleSourceAdapter::Create(config, &adapter));
-    ServableData<std::unique_ptr<Loader>> loader_data =
-        test_util::RunSourceAdapter(export_dir_, adapter.get());
-    TF_ASSERT_OK(loader_data.status());
-    std::unique_ptr<Loader> loader = loader_data.ConsumeDataOrDie();
+    std::unique_ptr<Loader> loader;
+    {
+      std::unique_ptr<SessionBundleSourceAdapter> adapter;
+      TF_CHECK_OK(SessionBundleSourceAdapter::Create(config, &adapter));
+      ServableData<std::unique_ptr<Loader>> loader_data =
+          test_util::RunSourceAdapter(export_dir_, adapter.get());
+      TF_ASSERT_OK(loader_data.status());
+      loader = loader_data.ConsumeDataOrDie();
+
+      // Let the adapter fall out of scope and be deleted. The loader we got
+      // from it should be unaffected. Regression test coverage for b/30202207.
+    }
 
     // We should get a non-empty resource estimate, and we should get the same
     // value twice (via memoization).

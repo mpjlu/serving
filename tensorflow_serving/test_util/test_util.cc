@@ -32,8 +32,7 @@ string ContribTestSrcDirPath(const string& relative_path) {
 
 string TestSrcDirPath(const string& relative_path) {
   const string base_path = tensorflow::io::JoinPath(
-      getenv("TEST_SRCDIR"),
-      "tf_serving/tensorflow_serving/");
+      getenv("TEST_SRCDIR"), "tf_serving/tensorflow_serving");
   return tensorflow::io::JoinPath(base_path, relative_path);
 }
 

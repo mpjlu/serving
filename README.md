@@ -47,10 +47,10 @@ Caffe [Python layers](https://github.com/NVIDIA/DIGITS/tree/master/examples/pyth
 
 - `libpython-dev libboost-python-dev`
 
-The python layer is enabled at build-time with the `--define=caffe_python_layer=ON` option. For example, to run a test which demonstrates the use the python layers:
+The python layer is enabled at build-time with the `--define=caffe_python_layer=ON` option. For example, to run tests which demonstrate the use the python layers:
 
     > bazel test --define=caffe_python_layer=ON \
-        //tensorflow_serving/servables/caffe:caffe_session_bundle_factory_test_py
+        //tensorflow_serving/servables/caffe:caffe_session_bundle_factory_test
 
 ### GPU Support (optional, linux only)
 

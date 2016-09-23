@@ -35,17 +35,22 @@ Status SessionBundleSourceAdapter::Create(
   return Status::OK();
 }
 
+SessionBundleSourceAdapter::~SessionBundleSourceAdapter() { Detach(); }
+
 SessionBundleSourceAdapter::SessionBundleSourceAdapter(
     std::unique_ptr<SessionBundleFactory> bundle_factory)
     : bundle_factory_(std::move(bundle_factory)) {}
 
 Status SessionBundleSourceAdapter::Convert(const StoragePath& path,
                                            std::unique_ptr<Loader>* loader) {
-  auto servable_creator = [this, path](std::unique_ptr<SessionBundle>* bundle) {
-    return this->bundle_factory_->CreateSessionBundle(path, bundle);
+  std::shared_ptr<SessionBundleFactory> bundle_factory = bundle_factory_;
+  auto servable_creator = [bundle_factory,
+                           path](std::unique_ptr<SessionBundle>* bundle) {
+    return bundle_factory->CreateSessionBundle(path, bundle);
   };
-  auto resource_estimator = [this, path](ResourceAllocation* estimate) {
-    return this->bundle_factory_->EstimateResourceRequirement(path, estimate);
+  auto resource_estimator = [bundle_factory,
+                             path](ResourceAllocation* estimate) {
+    return bundle_factory->EstimateResourceRequirement(path, estimate);
   };
   loader->reset(
       new SimpleLoader<SessionBundle>(servable_creator, resource_estimator));
@@ -56,8 +61,8 @@ std::function<Status(
     std::unique_ptr<SourceAdapter<StoragePath, std::unique_ptr<Loader>>>*)>
 SessionBundleSourceAdapter::GetCreator(
     const SessionBundleSourceAdapterConfig& config) {
-  return [&config](std::unique_ptr<tensorflow::serving::SourceAdapter<
-                       StoragePath, std::unique_ptr<Loader>>>* source) {
+  return [config](std::unique_ptr<tensorflow::serving::SourceAdapter<
+                      StoragePath, std::unique_ptr<Loader>>>* source) {
     std::unique_ptr<SessionBundleSourceAdapter> typed_source;
     TF_RETURN_IF_ERROR(
         SessionBundleSourceAdapter::Create(config, &typed_source));

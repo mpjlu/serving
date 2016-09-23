@@ -62,7 +62,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":caffe_serving_session",
-        "//tensorflow_serving/session_bundle:manifest_proto",
+        "@org_tensorflow//tensorflow/contrib/session_bundle:manifest_proto_cc",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
     ],
@@ -126,27 +126,12 @@ cc_library(
 cc_test(
     name = "caffe_session_bundle_factory_test",
     srcs = ["caffe_session_bundle_factory_test.cc"],
-    data = ["//tensorflow_serving/servables/caffe/test_data:mnist_pretrained_caffe"],
+    data = [
+        "//tensorflow_serving/servables/caffe/test_data:mnist_pretrained_caffe",
+        "//tensorflow_serving/servables/caffe/test_data:py_layers"
+    ],
     deps = [
         "//tensorflow_serving/servables/caffe/test_data:mnist_sample",
-        "@protobuf//:cc_wkt_protos",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:tensorflow",
-        "@org_tensorflow//tensorflow/core:test",
-        "@org_tensorflow//tensorflow/core:testlib",
-        ":caffe_session_bundle_config_proto",
-        ":caffe_session_bundle_factory",
-        "//tensorflow_serving/core/test_util:test_main",
-        "//tensorflow_serving/resources:resource_values",
-        "//tensorflow_serving/test_util",
-    ],
-)
-
-cc_test(
-    name = "caffe_session_bundle_factory_test_py",
-    srcs = ["caffe_session_bundle_factory_test_py.cc"],
-    data = ["//tensorflow_serving/servables/caffe/test_data:py_layers"],
-    deps = [
         "@protobuf//:cc_wkt_protos",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",

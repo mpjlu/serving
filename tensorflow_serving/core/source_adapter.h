@@ -42,10 +42,18 @@ namespace serving {
 // SourceAdapters are typically stateless. However, as with all Sources they can
 // house state that is shared among multiple emitted servables. See the
 // discussion in source.h.
+//
+// Implementing subclasses supply an implementation of the Adapt() virtual
+// method, which converts a servable version list from InputType to OutputType.
+//
+// IMPORTANT: Every leaf derived class must call Detach() at the top of its
+// destructor. (See documentation on TargetBase::Detach() in target.h.) Doing so
+// ensures that no Adapt() calls are in flight during destruction of member
+// variables.
 template <typename InputType, typename OutputType>
 class SourceAdapter : public TargetBase<InputType>, public Source<OutputType> {
  public:
-  ~SourceAdapter() = default;
+  ~SourceAdapter() override = 0;
 
   // This method is implemented in terms of Adapt(), which the implementing
   // subclass must supply.
@@ -54,6 +62,10 @@ class SourceAdapter : public TargetBase<InputType>, public Source<OutputType> {
 
   void SetAspiredVersionsCallback(
       typename Source<OutputType>::AspiredVersionsCallback callback) final;
+
+ protected:
+  // This is an abstract class.
+  SourceAdapter() = default;
 
  private:
   // Given an InputType-based aspired-versions request, produces a corresponding
@@ -76,11 +88,22 @@ class SourceAdapter : public TargetBase<InputType>, public Source<OutputType> {
 // not need the full generality of SourceAdapter.
 //
 // Requires OutputType to be default-constructable and updatable in-place.
+//
+// Implementing subclasses supply an implementation of the Convert() virtual
+// method, which converts a servable from InputType to OutputType.
+//
+// IMPORTANT: Every leaf derived class must call Detach() at the top of its
+// destructor. (See documentation on TargetBase::Detach() in target.h.) Doing so
+// ensures that no Convert() calls are in flight during destruction of member
+// variables.
 template <typename InputType, typename OutputType>
 class UnarySourceAdapter : public SourceAdapter<InputType, OutputType> {
  public:
+  ~UnarySourceAdapter() override = 0;
+
+ protected:
+  // This is an abstract class.
   UnarySourceAdapter() = default;
-  ~UnarySourceAdapter() override = default;
 
  private:
   // This method is implemented in terms of Convert(), which the implementing
@@ -106,11 +129,11 @@ class UnarySourceAdapter : public SourceAdapter<InputType, OutputType> {
 // SourceAdapters to handle apples and oranges, we might connect an
 // ErrorInjectingSourceAdapter to port 2, to catch any unexpected fruits.
 template <typename InputType, typename OutputType>
-class ErrorInjectingSourceAdapter
+class ErrorInjectingSourceAdapter final
     : public SourceAdapter<InputType, OutputType> {
  public:
   explicit ErrorInjectingSourceAdapter(const Status& error);
-  ~ErrorInjectingSourceAdapter() override = default;
+  ~ErrorInjectingSourceAdapter() override;
 
  private:
   std::vector<ServableData<OutputType>> Adapt(
@@ -127,6 +150,9 @@ class ErrorInjectingSourceAdapter
 // Implementation details follow. API users need not read.
 
 template <typename InputType, typename OutputType>
+SourceAdapter<InputType, OutputType>::~SourceAdapter() {}
+
+template <typename InputType, typename OutputType>
 void SourceAdapter<InputType, OutputType>::SetAspiredVersions(
     const StringPiece servable_name,
     std::vector<ServableData<InputType>> versions) {
@@ -140,6 +166,9 @@ void SourceAdapter<InputType, OutputType>::SetAspiredVersionsCallback(
   outgoing_callback_ = callback;
   outgoing_callback_set_.Notify();
 }
+
+template <typename InputType, typename OutputType>
+UnarySourceAdapter<InputType, OutputType>::~UnarySourceAdapter() {}
 
 template <typename InputType, typename OutputType>
 std::vector<ServableData<OutputType>>
@@ -171,6 +200,12 @@ ErrorInjectingSourceAdapter<InputType, OutputType>::ErrorInjectingSourceAdapter(
     const Status& error)
     : error_(error) {
   DCHECK(!error.ok());
+}
+
+template <typename InputType, typename OutputType>
+ErrorInjectingSourceAdapter<InputType,
+                            OutputType>::~ErrorInjectingSourceAdapter() {
+  TargetBase<InputType>::Detach();
 }
 
 template <typename InputType, typename OutputType>

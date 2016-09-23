@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
         swig \
         zip \
         zlib1g-dev \
+        libcurl3-dev \
         && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -27,8 +28,8 @@ RUN curl -fSsL -O https://bootstrap.pypa.io/get-pip.py && \
 
 # Set up grpc
 
-RUN pip install enum34 futures six && \
-    pip install --pre protobuf>=3.0.0a3 && \
+RUN pip install enum34 futures mock six && \
+    pip install --pre 'protobuf>=3.0.0a3' && \
     pip install -i https://testpypi.python.org/simple --pre grpcio
 
 # Set up Bazel.
@@ -55,7 +56,7 @@ RUN echo "build --spawn_strategy=standalone --genrule_strategy=standalone" \
     >>/root/.bazelrc
 ENV BAZELRC /root/.bazelrc
 # Install the most recent bazel release.
-ENV BAZEL_VERSION 0.2.0
+ENV BAZEL_VERSION 0.3.1
 WORKDIR /
 RUN mkdir /bazel && \
     cd /bazel && \

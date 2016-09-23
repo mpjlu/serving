@@ -22,9 +22,11 @@ limitations under the License.
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/macros.h"
+#include "tensorflow/core/platform/mem.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow_serving/core/loader.h"
 #include "tensorflow_serving/core/source_adapter.h"
+#include "tensorflow_serving/resources/resource_values.h"
 #include "tensorflow_serving/util/any_ptr.h"
 #include "tensorflow_serving/util/optional.h"
 
@@ -43,7 +45,9 @@ namespace serving {
 // Unload() is called.
 //
 // SimpleLoader uses a second supplied callback to estimate the servable's
-// resource usage. It memoizes that callback's result, for efficiency.
+// resource usage. It memoizes that callback's result, for efficiency. If main-
+// memory resources are specified, Unload() releases that amount of memory to
+// the OS after deleting the servable.
 //
 // Example use: create a toy Loader for a servable of type time_t.  Here the
 // time servable is instantiated with the current time when Load() is called.
@@ -111,16 +115,23 @@ class SimpleLoader : public Loader {
 // version items one at a time, giving a simpler interface but less flexibility.
 //
 //  - Like SimpleLoader, the servable's estimated resource footprint is static,
-//    and the emitted loaders' Unload() implementation simply calls
-//    ServableType's destructor.
+//    and the emitted loaders' Unload() implementation calls ServableType's
+//    destructor and releases the memory to the OS.
 //
 // For more complex behaviors, SimpleLoaderSourceAdapter is inapplicable. You
 // must instead create a SourceAdapter and Loader. That said, you may still be
 // able to use one of UnarySourceAdapter or SimpleLoader.
+//
+// IMPORTANT: Every leaf derived class must call Detach() at the top of its
+// destructor. (See documentation on TargetBase::Detach() in target.h.) Doing so
+// ensures that no virtual method calls are in flight during destruction of
+// member variables.
 template <typename DataType, typename ServableType>
 class SimpleLoaderSourceAdapter
     : public UnarySourceAdapter<DataType, std::unique_ptr<Loader>> {
  public:
+  ~SimpleLoaderSourceAdapter() override = 0;
+
   // Creator is called by the produced Loaders' Load() method, and used to
   // create objects of type ServableType. It takes a DataType object as input.
   using Creator =
@@ -140,11 +151,11 @@ class SimpleLoaderSourceAdapter
   // and hence the serving system cannot enforce resource safety.
   static ResourceEstimator EstimateNoResources();
 
+ protected:
+  // This is an abstract class.
   SimpleLoaderSourceAdapter(Creator creator,
                             ResourceEstimator resource_estimator);
-  ~SimpleLoaderSourceAdapter() override = default;
 
- protected:
   Status Convert(const DataType& data, std::unique_ptr<Loader>* loader) final;
 
  private:
@@ -194,8 +205,33 @@ Status SimpleLoader<ServableType>::Load(
 
 template <typename ServableType>
 void SimpleLoader<ServableType>::Unload() {
+  // Before destroying the servable, run the resource estimator (in case the
+  // estimation routine calls into the servable behind the scenes.)
+  ResourceAllocation resource_estimate;
+  Status resource_status = EstimateResources(&resource_estimate);
+
+  // Delete the servable no matter what (even if the resource estimator had some
+  // error).
   servable_.reset();
+
+  if (!resource_status.ok()) {
+    return;
+  }
+
+  // If we have a main-memory footprint estimate, release that amount of memory
+  // to the OS.
+  for (const ResourceAllocation::Entry& entry :
+       resource_estimate.resource_quantities()) {
+    if (entry.resource().device() == device_types::kMain &&
+        entry.resource().kind() == resource_kinds::kRamBytes) {
+      ::tensorflow::port::MallocExtension_ReleaseToSystem(entry.quantity());
+    }
+  }
 }
+
+template <typename DataType, typename ServableType>
+SimpleLoaderSourceAdapter<DataType,
+                          ServableType>::~SimpleLoaderSourceAdapter() {}
 
 template <typename DataType, typename ServableType>
 typename SimpleLoaderSourceAdapter<DataType, ServableType>::ResourceEstimator
@@ -214,12 +250,17 @@ SimpleLoaderSourceAdapter<DataType, ServableType>::SimpleLoaderSourceAdapter(
 template <typename DataType, typename ServableType>
 Status SimpleLoaderSourceAdapter<DataType, ServableType>::Convert(
     const DataType& data, std::unique_ptr<Loader>* loader) {
+  // We copy 'creator_' and 'resource_estimator_', rather than passing via
+  // reference, so that the loader we emit is not tied to the adapter, in case
+  // the adapter is deleted before the loader.
+  const auto creator = creator_;
+  const auto resource_estimator = resource_estimator_;
   loader->reset(new SimpleLoader<ServableType>(
-      [this, data](std::unique_ptr<ServableType>* servable) {
-        return this->creator_(data, servable);
+      [creator, data](std::unique_ptr<ServableType>* servable) {
+        return creator(data, servable);
       },
-      [this, data](ResourceAllocation* estimate) {
-        return this->resource_estimator_(data, estimate);
+      [resource_estimator, data](ResourceAllocation* estimate) {
+        return resource_estimator(data, estimate);
       }));
   return Status::OK();
 }

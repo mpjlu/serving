@@ -1,4 +1,4 @@
-# Description: Tensorflow Serving tensorflow servable.
+# Description: TensorFlow servables.
 
 package(
     default_visibility = [
@@ -54,7 +54,7 @@ cc_library(
         "//tensorflow_serving/resources:resource_values",
         "//tensorflow_serving/resources:resources_proto",
         "//tensorflow_serving/servables/tensorflow:serving_session",
-        "//tensorflow_serving/session_bundle",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:core_cpu",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -72,8 +72,8 @@ cc_test(
         ":session_bundle_factory",
         "//tensorflow_serving/core/test_util:test_main",
         "//tensorflow_serving/resources:resource_values",
-        "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/test_util",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:core_cpu",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -98,8 +98,8 @@ cc_library(
         "//tensorflow_serving/core:source_adapter",
         "//tensorflow_serving/core:storage_path",
         "//tensorflow_serving/servables/tensorflow:serving_session",
-        "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/util:optional",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:core_cpu",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
@@ -123,9 +123,9 @@ cc_test(
         "//tensorflow_serving/core:source_adapter",
         "//tensorflow_serving/core/test_util:source_adapter_test_util",
         "//tensorflow_serving/core/test_util:test_main",
-        "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/test_util",
         "//tensorflow_serving/util:any_ptr",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:core_cpu",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
@@ -165,9 +165,9 @@ cc_library(
         "//tensorflow_serving/core:source_adapter",
         "//tensorflow_serving/core:storage_path",
         "//tensorflow_serving/core:target",
-        "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/sources/storage_path:file_system_storage_path_source",
         "//tensorflow_serving/sources/storage_path:file_system_storage_path_source_proto",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:tensorflow",
     ],
@@ -183,9 +183,9 @@ cc_test(
         ":simple_servers",
         "//tensorflow_serving/core:servable_handle",
         "//tensorflow_serving/core/test_util:test_main",
-        "//tensorflow_serving/session_bundle",
         "//tensorflow_serving/test_util",
         "//tensorflow_serving/util:unique_ptr_with_deps",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:core_cpu",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:lib",
@@ -204,5 +204,20 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@org_tensorflow//tensorflow/core:tensorflow",
+    ],
+)
+
+cc_library(
+    name = "predict_impl",
+    srcs = ["predict_impl.cc"],
+    hdrs = ["predict_impl.h"],
+    deps = [
+        "//tensorflow_serving/apis:predict_proto",
+        "//tensorflow_serving/core:servable_handle",
+        "//tensorflow_serving/model_servers:server_core",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+        "//tensorflow_serving/servables/caffe:caffe_signature"
     ],
 )

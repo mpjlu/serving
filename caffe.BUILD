@@ -1,6 +1,6 @@
 load("@caffe_tools//:cuda.bzl", "if_cuda")
 load("@caffe_tools//:config.bzl", "if_pycaffe")
-load("@org_tensorflow//third_party/gpus/cuda:platform.bzl",
+load("@local_config_cuda//cuda:platform.bzl",
      "cuda_sdk_version",
      "cudnn_library_path",
     )

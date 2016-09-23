@@ -16,13 +16,13 @@ limitations under the License.
 #ifndef TENSORFLOW_SERVING_SERVABLES_TENSORFLOW_SESSION_BUNDLE_SOURCE_ADAPTER_H_
 #define TENSORFLOW_SERVING_SERVABLES_TENSORFLOW_SESSION_BUNDLE_SOURCE_ADAPTER_H_
 
+#include "tensorflow/contrib/session_bundle/session_bundle.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow_serving/core/loader.h"
 #include "tensorflow_serving/core/source_adapter.h"
 #include "tensorflow_serving/core/storage_path.h"
 #include "tensorflow_serving/servables/tensorflow/session_bundle_factory.h"
 #include "tensorflow_serving/servables/tensorflow/session_bundle_source_adapter.pb.h"
-#include "tensorflow_serving/session_bundle/session_bundle.h"
 
 namespace tensorflow {
 namespace serving {
@@ -30,13 +30,13 @@ namespace serving {
 // A SourceAdapter that creates SessionBundle Loaders from export paths. It
 // keeps a SessionBundleFactory as its state, which may house a batch scheduler
 // that is shared across all of the session bundles it emits.
-class SessionBundleSourceAdapter
+class SessionBundleSourceAdapter final
     : public UnarySourceAdapter<StoragePath, std::unique_ptr<Loader>> {
  public:
   static Status Create(const SessionBundleSourceAdapterConfig& config,
                        std::unique_ptr<SessionBundleSourceAdapter>* adapter);
 
-  ~SessionBundleSourceAdapter() override = default;
+  ~SessionBundleSourceAdapter() override;
 
   // Returns a function to create a session bundle source adapter.
   static std::function<Status(
@@ -50,7 +50,9 @@ class SessionBundleSourceAdapter
   Status Convert(const StoragePath& path,
                  std::unique_ptr<Loader>* loader) override;
 
-  std::unique_ptr<SessionBundleFactory> bundle_factory_;
+  // We use a shared ptr to share ownership with Loaders we emit, in case they
+  // outlive this object.
+  std::shared_ptr<SessionBundleFactory> bundle_factory_;
 
   TF_DISALLOW_COPY_AND_ASSIGN(SessionBundleSourceAdapter);
 };

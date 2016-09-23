@@ -43,10 +43,15 @@ namespace serving {
 // system monitoring Source<StoragePath>, and a pair of SourceAdapters (one that
 // emits loaders of apple servables, and one that emits loaders of orange
 // servables), to route each path to the appropriate SourceAdapter.
+//
+// IMPORTANT: Every leaf derived class must call Detach() at the top of its
+// destructor. (See documentation on TargetBase::Detach() in target.h.) Doing so
+// ensures that no virtual method calls are in flight during destruction of
+// member variables.
 template <typename T>
 class SourceRouter : public TargetBase<T> {
  public:
-  ~SourceRouter() override = default;
+  ~SourceRouter() override = 0;
 
   // Returns a vector of N source pointers, corresponding to the N output ports
   // of the router. The caller must invoke ConnectSourceToTarget() (or directly
@@ -60,6 +65,9 @@ class SourceRouter : public TargetBase<T> {
                           std::vector<ServableData<T>> versions) final;
 
  protected:
+  // This is an abstract class.
+  SourceRouter() = default;
+
   // Returns the number of output ports. Must be > 0 and fixed for the lifetime
   // of the router. To be written by the implementing subclass.
   virtual int num_output_ports() const = 0;
@@ -88,10 +96,10 @@ namespace internal {
 // A SourceAdapter that passes through data unchanged. Used to implement the
 // output ports.
 template <typename T>
-class IdentitySourceAdapter : public UnarySourceAdapter<T, T> {
+class IdentitySourceAdapter final : public UnarySourceAdapter<T, T> {
  public:
   IdentitySourceAdapter() = default;
-  ~IdentitySourceAdapter() override = default;
+  ~IdentitySourceAdapter() override { TargetBase<T>::Detach(); }
 
  protected:
   Status Convert(const T& data, T* converted_data) override {
@@ -104,6 +112,9 @@ class IdentitySourceAdapter : public UnarySourceAdapter<T, T> {
 };
 
 }  // namespace internal
+
+template <typename T>
+SourceRouter<T>::~SourceRouter() {}
 
 template <typename T>
 std::vector<Source<T>*> SourceRouter<T>::GetOutputPorts() {
