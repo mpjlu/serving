@@ -33,6 +33,7 @@ cc_library(
         "//tensorflow_serving:internal",
     ],
     deps = [
+        "//tensorflow_serving/servables/caffe:caffe_source_adapter",
         "//tensorflow_serving/apis:model_proto",
         "//tensorflow_serving/config:model_server_config_proto",
         "//tensorflow_serving/core:aspired_versions_manager",
@@ -81,21 +82,44 @@ TENSORFLOW_DEPS = [
     "//tensorflow_serving/servables/tensorflow:predict_impl",
 ]
 
+CAFFE_DEPS = [
+    "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
+    "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
+    "//tensorflow_serving/servables/caffe:caffe_session_bundle",
+    "//tensorflow_serving/servables/caffe:caffe_signature",
+    "//tensorflow_serving/servables/caffe:predict_impl"
+]
+
+SERVER_DEPS = [
+    ":server_core",
+    "@protobuf//:cc_wkt_protos",
+    "@org_tensorflow//tensorflow/core:lib",
+    "@org_tensorflow//tensorflow/core/platform/cloud:gcs_file_system",
+    "//tensorflow_serving/apis:prediction_service_proto",
+    "//tensorflow_serving/core:servable_state_monitor",
+    "@grpc//:grpc++",
+]
+
+# tensorflow-only model server
 cc_binary(
     name = "tensorflow_model_server",
-    srcs = [
-        "main.cc",
-    ],
+    srcs = ["main.cc"],
     visibility = ["//tensorflow_serving:internal"],
-    deps = [
-        ":server_core",
-        "@protobuf//:cc_wkt_protos",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core/platform/cloud:gcs_file_system",
-        "//tensorflow_serving/apis:prediction_service_proto",
-        "//tensorflow_serving/core:servable_state_monitor",
-        "@grpc//:grpc++",
-    ] + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS,
+    defines = [
+        "USE_TENSORFLOW"
+    ],
+    deps = SERVER_DEPS + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS
+)
+# generic caffe + tensorflow model server
+cc_binary(
+    name = "model_server",
+    srcs = ["main.cc"],
+    visibility = ["//tensorflow_serving:internal"],
+    defines = [
+        "USE_TENSORFLOW",
+        "USE_CAFFE"
+    ],
+    deps = SERVER_DEPS + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS + CAFFE_DEPS
 )
 
 py_test(
