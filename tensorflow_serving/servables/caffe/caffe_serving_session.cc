@@ -210,7 +210,9 @@ CaffeServingSession::CaffeServingSession(const CaffeMetaGraphDef& graph,
               );
 }
 
-CaffeServingSession::~CaffeServingSession() = default;
+CaffeServingSession::~CaffeServingSession() {
+  LOG(INFO) << "Unloading Network.";
+}
 
 Status CaffeServingSession::Run(const std::vector<std::pair<string, Tensor>>& inputs,
                                 const std::vector<string>& output_tensor_names,
