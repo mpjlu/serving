@@ -24,6 +24,7 @@ limitations under the License.
 #include "tensorflow/core/lib/io/inputbuffer.h"
 #include "tensorflow/core/lib/strings/str_util.h"
 
+#include "tensorflow_serving/core/simple_loader.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle_factory.h"
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 
@@ -45,17 +46,19 @@ CaffeSourceAdapter::CaffeSourceAdapter(
     : bundle_factory_(std::move(bundle_factory)) {}
 
 Status CaffeSourceAdapter::Convert(const StoragePath& path,
-                                           std::unique_ptr<Loader>* loader) {
+                                   std::unique_ptr<Loader>* loader) {
   auto servable_creator = [this, path](std::unique_ptr<CaffeSessionBundle>* bundle) {
     return this->bundle_factory_->CreateSessionBundle(path, bundle);
   };
   auto resource_estimator = [this, path](ResourceAllocation* estimate) {
     return this->bundle_factory_->EstimateResourceRequirement(path, estimate);
   };
-  loader->reset(
-      new SimpleLoader<CaffeSessionBundle>(servable_creator, resource_estimator));
+  loader->reset(new SimpleLoader<CaffeSessionBundle>(
+      servable_creator, resource_estimator));
   return Status::OK();
 }
+
+CaffeSourceAdapter::~CaffeSourceAdapter() { Detach(); }
 
 std::function<Status(
     std::unique_ptr<SourceAdapter<StoragePath, std::unique_ptr<Loader>>>*)>

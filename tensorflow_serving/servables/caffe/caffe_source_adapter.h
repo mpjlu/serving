@@ -32,7 +32,7 @@ class CaffeSourceAdapter
   static Status Create(const CaffeSourceAdapterConfig& config,
                        std::unique_ptr<CaffeSourceAdapter>* adapter);
 
-  ~CaffeSourceAdapter() override = default;
+  ~CaffeSourceAdapter() override;
 
   // Returns a function to create a session bundle source adapter.
   static std::function<Status(
