@@ -53,25 +53,35 @@ class _ResultCounter(object):
   """Counter for the prediction results."""
 
   def __init__(self, num_tests, concurrency):
+    self._result_timing = numpy.zeros(num_tests, dtype=numpy.float64);
     self._num_tests = num_tests
     self._concurrency = concurrency
     self._error = 0
     self._done = 0
     self._active = 0
     self._condition = threading.Condition()
+    self._start_time = numpy.NaN
+    self._end_time = numpy.NaN
 
-  def inc_error(self):
+  def inc_rpc_error(self, reqid):
+    with self._condition:
+      self._result_timing[reqid] = numpy.NaN
+
+  def inc_error(self, reqid):
     with self._condition:
       self._error += 1
 
-  def inc_done(self):
+  def inc_done(self, reqid):
     with self._condition:
+      self._result_timing[reqid] = timer() - self._result_timing[reqid]
       self._done += 1
       self._condition.notify()
 
   def dec_active(self):
     with self._condition:
       self._active -= 1
+      if self._done == self._num_tests:
+        self._end_time = timer()
       self._condition.notify()
 
   def get_error_rate(self):
@@ -80,14 +90,25 @@ class _ResultCounter(object):
         self._condition.wait()
       return self._error / float(self._num_tests)
 
-  def throttle(self):
+  def throttle(self, reqid):
     with self._condition:
+      if self._active == 0 and self._done == 0:
+        self._start_time = timer()
       while self._active == self._concurrency:
         self._condition.wait()
       self._active += 1
+      self._result_timing[reqid] = timer()
+
+  def stats(self):
+    return InferenceStats(
+        self._num_tests,
+        self.get_error_rate(),
+        self._result_timing,
+        self._end_time - self._start_time)
 
 
-def _create_rpc_callback(label, result_counter):
+
+def _create_rpc_callback(label, result_counter, reqid):
   """Creates RPC callback function.
 
   Args:
@@ -106,7 +127,7 @@ def _create_rpc_callback(label, result_counter):
     """
     exception = result_future.exception()
     if exception:
-      result_counter.inc_error()
+      result_counter.inc_rpc_error(reqid)
       print exception
     else:
       sys.stdout.write('.')
@@ -115,8 +136,8 @@ def _create_rpc_callback(label, result_counter):
           result_future.result().outputs['scores'].float_val)
       prediction = numpy.argmax(response)
       if label != prediction:
-        result_counter.inc_error()
-    result_counter.inc_done()
+        result_counter.inc_error(reqid)
+    result_counter.inc_done(reqid)
     result_counter.dec_active()
   return _callback
 
@@ -141,17 +162,17 @@ def do_inference(hostport, work_dir, concurrency, num_tests):
   channel = implementations.insecure_channel(host, int(port))
   stub = prediction_service_pb2.beta_create_PredictionService_stub(channel)
   result_counter = _ResultCounter(num_tests, concurrency)
-  for _ in range(num_tests):
+  for i in range(num_tests):
     request = predict_pb2.PredictRequest()
     request.model_spec.name = 'mnist'
     image, label = test_data_set.next_batch(1)
     request.inputs['images'].CopyFrom(
         tf.contrib.util.make_tensor_proto(image[0], shape=[1, image[0].size]))
-    result_counter.throttle()
+    result_counter.throttle(i)
     result_future = stub.Predict.future(request, 5.0)  # 5 seconds
     result_future.add_done_callback(
-        _create_rpc_callback(label[0], result_counter))
-  return result_counter.get_error_rate()
+        _create_rpc_callback(label[0], result_counter, i))
+  return result_counter.stats()
 
 def main(_):
   if FLAGS.num_tests > 10000:

@@ -1,4 +1,4 @@
-load("@caffe_tools//:cuda.bzl", "if_cuda")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "if_cuda")
 load("@caffe_tools//:config.bzl", "if_pycaffe")
 load("@local_config_cuda//cuda:platform.bzl",
      "cuda_sdk_version",

@@ -37,8 +37,8 @@ using tensorflow::Tensor;
 
 tensorflow::Status Run(tensorflow::Session* session,
            const PredictRequest& request,
-           const GenericSignature& output_signature,
            const GenericSignature& input_signature,
+           const GenericSignature& output_signature,
            PredictResponse* response) {
 
   // Verify and prepare input.
