@@ -35,11 +35,11 @@ message ConfigurationRequest {
 };
 
 message DetectConfiguration {
-	// input image shape, [c, h, w]
+    // input image shape, [c, h, w]
     repeated int32 input_image_shape = 1;
 };
 
 service DetectService {
-	rpc GetConfiguration(ConfigurationRequest) returns (DetectConfiguration);
+    rpc GetConfiguration(ConfigurationRequest) returns (DetectConfiguration);
     rpc Detect(DetectRequest) returns (DetectResponse);
 };
