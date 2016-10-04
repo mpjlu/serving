@@ -108,7 +108,6 @@ py_binary(
         "client_util.py",
     ],
     deps = [
-        ":mnist_input_data",
         "@org_tensorflow//tensorflow:tensorflow_py",
     ],
 )
@@ -150,13 +149,13 @@ cc_binary(
     deps = [
         "@grpc//:grpc++",
         "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/contrib/session_bundle",
         ":obj_detector_proto",
         "//tensorflow_serving/batching:basic_batch_scheduler",
         "//tensorflow_serving/batching:batch_scheduler",
         "//tensorflow_serving/core:manager",
         "//tensorflow_serving/core:servable_handle",
         "//tensorflow_serving/core:servable_id",
-        "//tensorflow_serving/session_bundle:signature",
         "//tensorflow_serving/servables/caffe:caffe_session_bundle",
         "//tensorflow_serving/servables/caffe:caffe_simple_servers",
         "//tensorflow_serving/servables/caffe:caffe_signature",

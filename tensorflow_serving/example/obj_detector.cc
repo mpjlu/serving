@@ -43,6 +43,7 @@ limitations under the License.
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/util/command_line_flags.h"
+#include "tensorflow/contrib/session_bundle/signature.h"
 
 // TFS
 #include "tensorflow_serving/batching/basic_batch_scheduler.h"
@@ -50,7 +51,6 @@ limitations under the License.
 #include "tensorflow_serving/core/manager.h"
 #include "tensorflow_serving/core/servable_handle.h"
 #include "tensorflow_serving/core/servable_id.h"
-#include "tensorflow_serving/session_bundle/signature.h"
 
 // service api
 #include "tensorflow_serving/example/obj_detector.grpc.pb.h"
