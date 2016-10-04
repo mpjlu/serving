@@ -33,8 +33,8 @@ genrule(
     name = "configure",
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
-        "@org_tensorflow//third_party/gpus/cuda:include/cudnn.h",
-        "@org_tensorflow//third_party/gpus/cuda:" + cudnn_library_path()
+        "@local_config_cuda//cuda:include/cudnn.h",
+        "@local_config_cuda//cuda:" + cudnn_library_path()
     ]) + [
         ":protobuf-root",
         ":CMakeLists.txt",
@@ -67,8 +67,8 @@ genrule(
         # adopting the tensorflow cuda configuration where
         # sensible.
         if_cuda('''
-            cudnn_includes=$(location @org_tensorflow//third_party/gpus/cuda:include/cudnn.h);
-            cudnn_lib=$(location @org_tensorflow//third_party/gpus/cuda:%s);
+            cudnn_includes=$(location @local_config_cuda//cuda:include/cudnn.h);
+            cudnn_lib=$(location @local_config_cuda//cuda:%s);
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
                               -DUSE_CUDNN:bool=ON
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
@@ -132,25 +132,6 @@ genrule(
         # rm -rf $$workdir; ''',
 )
 
-genrule(
-    name = "cuda-extras",
-    srcs = ["@org_tensorflow//third_party/gpus/cuda:cuda.config"],
-    outs = ["lib64/libcurand.so." + cuda_sdk_version()],
-    cmd  = '''
-        source $(location @org_tensorflow//third_party/gpus/cuda:cuda.config) || exit -1;
-        CUDA_TOOLKIT_PATH=$${CUDA_TOOLKIT_PATH:-/usr/local/cuda};
-        FILE=libcurand.so.%s;
-        SRC=$$CUDA_TOOLKIT_PATH/lib64/$$FILE;
-
-        if test ! -e $$SRC; then
-            echo "ERROR: $$SRC cannot be found";
-            exit -1;
-        fi
-
-        mkdir -p $(@D);
-        cp $$SRC $(@D)/$$FILE;''' % cuda_sdk_version(),
-)
-
 # TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?).
 #   This genrule unpacks the caffe.a and merges the layers as a .o (ld -r).
 #   (A terrible hack).
@@ -169,13 +150,6 @@ genrule(
 
         cp $$workdir/libcaffe-layers.o $(@D)/;
         rm -rf $$workdir;''',
-)
-
-cc_library(
-    name = "curand",
-    srcs = ["lib64/libcurand.so." + cuda_sdk_version()],
-    data = ["lib64/libcurand.so." + cuda_sdk_version()],
-    linkstatic = 1
 )
 
 cc_library(
@@ -204,9 +178,9 @@ cc_library(
         ["WITH_PYTHON_LAYER"]
     ),
     deps = if_cuda([
-        "@org_tensorflow//third_party/gpus/cuda:cudnn",
-        "@org_tensorflow//third_party/gpus/cuda:cublas",
-        ":curand"
+        "@local_config_cuda//cuda:cudnn",
+        "@local_config_cuda//cuda:cublas",
+        "@local_config_cuda//cuda:curand"
     ]) + [
         "@protobuf//:protobuf",
         ":openblas",
@@ -233,3 +207,4 @@ cc_library(
     alwayslink = 1,
     linkstatic = 1,
 )
+
