@@ -63,11 +63,11 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
     gtl::ArraySlice<float> input_slice(input_sample_);
 
     std::vector<std::pair<string, Tensor>> inputs {
-      {"data", test::AsTensor(input_slice, {1, 1, 28, 28}) }
+      {"images", test::AsTensor(input_slice, {1, 1, 28, 28}) }
     };
     std::vector<Tensor> outputs;
 
-    TF_ASSERT_OK(bundle->session->Run(inputs, {"prob"}, {}, &outputs));
+    TF_ASSERT_OK(bundle->session->Run(inputs, {"scores"}, {}, &outputs));
     {
       ASSERT_EQ(outputs.size(), 1);
       ASSERT_EQ(outputs[0].NumElements(), 10);
@@ -105,7 +105,7 @@ class CaffeSessionBundleFactoryPyTest : public ::testing::Test {
     gtl::ArraySlice<float> input_slice(input_sample_);
 
     std::vector<std::pair<string, Tensor>> inputs {
-      { "data", test::AsTensor(input_slice, {1, 9, 8}) }
+      { "images", test::AsTensor(input_slice, {1, 9, 8}) }
     };
     std::vector<Tensor> outputs;
 

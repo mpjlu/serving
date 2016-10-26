@@ -79,10 +79,10 @@ class CaffeSourceAdapterTest : public ::testing::Test {
 
     const CaffeSessionBundle* bundle = loader->servable().get<CaffeSessionBundle>();
     ASSERT_EQ(bundle->meta_graph_def.resolved_inputs.size(), 1);
-    ASSERT_EQ(bundle->meta_graph_def.resolved_inputs[0], "data");
+    ASSERT_EQ(bundle->meta_graph_def.resolved_inputs[0], "images");
 
     ASSERT_EQ(bundle->meta_graph_def.resolved_outputs.size(), 1);
-    ASSERT_EQ(bundle->meta_graph_def.resolved_outputs[0], "prob");
+    ASSERT_EQ(bundle->meta_graph_def.resolved_outputs[0], "scores");
 
     ASSERT_EQ(bundle->meta_graph_def.classes.dtype(), DT_STRING);
     ASSERT_EQ(bundle->meta_graph_def.classes.string_val().size(), 10);
