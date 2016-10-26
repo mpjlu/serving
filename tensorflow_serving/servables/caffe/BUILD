@@ -43,7 +43,6 @@ genrule(
         cp $(SRCS) $$outdir'''
 )
 
-
 cc_library(
     name = "caffe_py_util",
     srcs = ["caffe_py_util.cc"],
@@ -240,6 +239,7 @@ cc_library(
         "@org_tensorflow//tensorflow/contrib/session_bundle",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
-        "//tensorflow_serving/servables/caffe:caffe_signature"
+        ":caffe_signature",
+        ":caffe_session_bundle"
     ],
 )

@@ -32,7 +32,11 @@ limitations under the License.
 //
 // To serve a single model, run with:
 //     $path_to_binary/tensorflow_model_server \
-//     --model_base_path=[/tmp/my_model | gs://gcs_address] \
+//     --model_base_path=[/tmp/my_model | gs://gcs_address]
+// IMPORTANT: Be sure the base path excludes the version directory. For
+// example for a model at /tmp/my_model/123, where 123 is the version, the base
+// path is /tmp/my_model.
+//
 // To specify model name (default "default"): --model_name=my_name
 // To specify port (default 8500): --port=my_port
 // To enable batching (default disabled): --enable_batching
@@ -42,6 +46,7 @@ limitations under the License.
 #include <iostream>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/wrappers.pb.h"
 #include "grpc++/security/server_credentials.h"
@@ -56,7 +61,9 @@ limitations under the License.
 #include "tensorflow_serving/apis/prediction_service.grpc.pb.h"
 #include "tensorflow_serving/apis/prediction_service.pb.h"
 #include "tensorflow_serving/config/model_server_config.pb.h"
+#include "tensorflow_serving/core/eager_load_policy.h"
 #include "tensorflow_serving/core/servable_state_monitor.h"
+#include "tensorflow_serving/model_servers/model_platform_types.h"
 #include "tensorflow_serving/model_servers/server_core.h"
 
 #if USE_TENSORFLOW
@@ -70,13 +77,17 @@ limitations under the License.
  #include "tensorflow_serving/servables/caffe/caffe_source_adapter.h"
 #endif
 
+using tensorflow::serving::AspiredVersionsManager;
+using tensorflow::serving::AspiredVersionPolicy;
 using tensorflow::serving::BatchingParameters;
+using tensorflow::serving::EagerLoadPolicy;
 using tensorflow::serving::EventBus;
 using tensorflow::serving::Loader;
 using tensorflow::serving::ModelServerConfig;
 using tensorflow::serving::ServableState;
 using tensorflow::serving::ServableStateMonitor;
 using tensorflow::serving::ServerCore;
+using tensorflow::serving::ServerCoreConfig;
 using tensorflow::serving::Target;
 using tensorflow::serving::UniquePtrWithDeps;
 using tensorflow::string;
@@ -106,7 +117,7 @@ struct ServableTraits {
 #if USE_TENSORFLOW
 template <>
 struct ServableTraits<TensorFlow> {
-  static const char* name() { return "tensorflow"; }
+  static const char* name() { return kTensorFlowModelPlatform; }
   static constexpr bool available = true;
 
   using SourceAdapterConfig = tensorflow::serving::SessionBundleSourceAdapterConfig;
@@ -122,7 +133,7 @@ struct ServableTraits<TensorFlow> {
 #if USE_CAFFE
 template <>
 struct ServableTraits<Caffe> {
-  static const char* name() { return "caffe"; }
+  static const char* name() { return kCaffeModelPlatform; }
   static constexpr bool available = true;
 
   using SourceAdapterConfig = tensorflow::serving::CaffeSourceAdapterConfig;
@@ -138,10 +149,10 @@ struct ServableTraits<Caffe> {
 template<typename S>
 tensorflow::Status CreateSourceAdapter(
     const typename ServableTraits<S>::SourceAdapterConfig& config,
-    const string& model_type,
+    const string& model_platform,
     std::unique_ptr<ServerCore::ModelServerSourceAdapter>* adapter) {
   using T = ServableTraits<S>;
-  CHECK(model_type == T::name())  // Crash ok
+  CHECK(model_platform == T::name())  // Crash ok
       << "ModelServer supports only " << T::name() << " model.";
   std::unique_ptr<typename T::SourceAdapter> typed_adapter;
   TF_RETURN_IF_ERROR(T::SourceAdapter::Create(config, &typed_adapter));
@@ -156,11 +167,12 @@ tensorflow::Status CreateServableStateMonitor(
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status LoadDynamicModelConfig(
+tensorflow::Status LoadCustomModelConfig(
     const ::google::protobuf::Any& any,
-    Target<std::unique_ptr<Loader>>* target) {
+    EventBus<ServableState>* servable_event_bus,
+    UniquePtrWithDeps<AspiredVersionsManager>* manager) {
   CHECK(false)  // Crash ok
-      << "ModelServer does not yet support dynamic model config.";
+      << "ModelServer does not yet support custom model config.";
 }
 
 template<typename S>
@@ -169,13 +181,13 @@ ModelServerConfig BuildSingleModelConfig(const string& model_name,
   using T = ServableTraits<S>;
   ModelServerConfig config;
   LOG(INFO) << "Building single " << T::name() << " model file config: "
-            << " model_name: " << model_name
-            << " model_base_path: " << model_base_path;
+            << "\n  model_name: " << model_name
+            << "\n  model_base_path: " << model_base_path;
   tensorflow::serving::ModelConfig* single_model =
       config.mutable_model_config_list()->add_config();
   single_model->set_name(model_name);
   single_model->set_base_path(model_base_path);
-  single_model->set_model_type(T::name());
+  single_model->set_model_platform(T::name());
   return config;
 }
 
@@ -224,21 +236,19 @@ void RunServer(int port, std::unique_ptr<ServerCore> core) {
   server->Wait();
 }
 
-template<typename S,
-    typename std::enable_if< ServableTraits<S>::available, int >::type = 0>
+template<
+  typename S,
+  typename std::enable_if< ServableTraits<S>::available, int >::type = 0>
 int BuildAndRun(tensorflow::int32 port,
                 bool enable_batching,
                 tensorflow::string model_name,
                 tensorflow::string model_base_path) {
-  LOG(INFO)
-    << "Using Servable '"
-    << ServableTraits<S>::name()
-    << "'";
-
+  using T = ServableTraits<S>;
+  LOG(INFO) << "Using model platform '" << T::name() << "'";
   ModelServerConfig config =
       BuildSingleModelConfig<S>(model_name, model_base_path);
 
-  typename ServableTraits<S>::SourceAdapterConfig source_adapter_config;
+  typename T::SourceAdapterConfig source_adapter_config;
   // Batching config
   if (enable_batching) {
     BatchingParameters* batching_parameters =
@@ -247,17 +257,23 @@ int BuildAndRun(tensorflow::int32 port,
         "model_server_batch_threads");
   }
 
+  ServerCoreConfig core_config;
+  core_config.aspired_version_policy =
+      std::unique_ptr<AspiredVersionPolicy>(new EagerLoadPolicy);
+
   std::unique_ptr<ServerCore> core;
   TF_CHECK_OK(ServerCore::Create(
       config, std::bind(CreateSourceAdapter<S>, source_adapter_config,
                         std::placeholders::_1, std::placeholders::_2),
-      &CreateServableStateMonitor, &LoadDynamicModelConfig, &core));
+      &CreateServableStateMonitor, &LoadCustomModelConfig,
+      std::move(core_config), &core));
   RunServer<S>(port, std::move(core));
   return 0;
 }
 
-template<typename S,
-    typename std::enable_if< !ServableTraits<S>::available, int >::type = 0>
+template<
+  typename S,
+  typename std::enable_if< !ServableTraits<S>::available, int >::type = 0>
 int BuildAndRun(
     tensorflow::int32, bool, tensorflow::string, tensorflow::string) {
   std::cout << "Servable type unavailable. Did you compile it?" << std::endl;
@@ -272,19 +288,19 @@ int main(int argc, char** argv) {
   tensorflow::string model_name = "default";
   tensorflow::string servable = ServableTraits<TensorFlow>::name();
   tensorflow::string model_base_path;
-  const bool parse_result = tensorflow::ParseFlags(
-      &argc, argv, {tensorflow::Flag("port", &port),
-                    tensorflow::Flag("enable_batching", &enable_batching),
-                    tensorflow::Flag("model_name", &model_name),
-                    tensorflow::Flag("servable", &servable),
-                    tensorflow::Flag("model_base_path", &model_base_path)});
+
+  std::vector<tensorflow::Flag> flag_list = {
+      tensorflow::Flag("port", &port, "port to listen on"),
+      tensorflow::Flag("enable_batching", &enable_batching, "enable batching"),
+      tensorflow::Flag("model_name", &model_name, "name of model"),
+      tensorflow::Flag("servable", &servable, "platform to use"),
+      tensorflow::Flag("model_base_path", &model_base_path,
+                       "path to export (required)")};
+  
+  string usage = tensorflow::Flags::Usage(argv[0], flag_list);
+  const bool parse_result = tensorflow::Flags::Parse(&argc, argv, flag_list);
   if (!parse_result || model_base_path.empty()) {
-    std::cout << "Usage: model_server"
-              << " [--port=8500]"
-              << " [--enable_batching]"
-              << " [--model_name=my_name]"
-              << " [--servable=tensorflow]"
-              << " --model_base_path=/path/to/export" << std::endl;
+    std::cout << usage;
     return -1;
   }
 
@@ -297,7 +313,7 @@ int main(int argc, char** argv) {
     return BuildAndRun<TensorFlow>(port, enable_batching, model_name, model_base_path);
   }
   else {
-    std::cout << "Invalid servable name." << std::endl;
+    std::cout << "Invalid platform name." << std::endl;
     return -1;
   }
 }

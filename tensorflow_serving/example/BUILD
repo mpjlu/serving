@@ -25,14 +25,6 @@ filegroup(
     ),
 )
 
-serving_proto_library(
-    name = "mnist_inference_proto",
-    srcs = ["mnist_inference.proto"],
-    has_services = 1,
-    cc_api_version = 2,
-    cc_grpc_version = 1,
-)
-
 py_library(
     name = "mnist_input_data",
     srcs = ["mnist_input_data.py"],
@@ -45,7 +37,6 @@ py_binary(
     ],
     deps = [
         ":mnist_input_data",
-        "//tensorflow_serving/session_bundle:exporter",
         "@org_tensorflow//tensorflow:tensorflow_py",
         "@org_tensorflow//tensorflow/contrib/session_bundle:exporter",
     ],
@@ -140,11 +131,13 @@ cc_binary(
     ],
     linkopts = ["-lm"] + select({
         ":obj_detector_ssd": ["-lboost_regex"],
-        ":obj_detector_rcnn": []
+        ":obj_detector_rcnn": [],
+        "//conditions:default": [],
     }),
     defines = select({
         ":obj_detector_rcnn": ["WITH_RCNN"],
-        ":obj_detector_ssd": ["WITH_SSD"]
+        ":obj_detector_ssd": ["WITH_SSD"],
+        "//conditions:default": [],
     }),
     deps = [
         "@grpc//:grpc++",
