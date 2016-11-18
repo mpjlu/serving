@@ -124,7 +124,7 @@ genrule(
 
         cp $$openblas_lib $$outdir/lib/libopenblas.so.0
         cp $$openblas_incl/cblas.h $$outdir/include
-        touch $$outdir/include/openblas_config.h ''' +
+        cp $$openblas_incl/openblas_config.h $$outdir/include ''' +
 
         '''
         # clean up
