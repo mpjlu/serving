@@ -27,6 +27,7 @@ from six.moves import urllib
 VERSION_FORMAT_SPECIFIER = "%08d"
 SOURCE_URL = 'https://ibm.box.com/shared/static/yemc4i8mtvrito2cgoypw4auxxvzatoo.tar'
 OUT_FILE = 'mnist_pretrained_caffe.tar'
+MODEL_FILES = ['classlabels.txt', 'deploy.prototxt', 'weights.caffemodel']
 
 def maybe_download(url, filename, work_directory):
   """Download the data"""
@@ -61,4 +62,6 @@ if __name__ == '__main__':
   with tarfile.open(filename) as tar:
     tar.extractall(path=export_dir)
 
-  # TODO(rayg): check model/data file(s) exists
+  for p in MODEL_FILES:
+    if not os.path.isfile(os.path.join(export_dir, p)):
+      raise FileNotFoundError("Expected model file '%s'" % p)
