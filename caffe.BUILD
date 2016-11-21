@@ -138,7 +138,7 @@ genrule(
         # rm -rf $$workdir; ''',
 )
 
-# TODO(rayg): Bazel will ignore `alwayslink=1` for *.a archives (a bug?).
+# Note: Bazel will ignore `alwayslink=1` for *.a archives (a bug?).
 #   This genrule unpacks the caffe.a and merges the layers as a .o (ld -r).
 #   (A terrible hack).
 genrule(
