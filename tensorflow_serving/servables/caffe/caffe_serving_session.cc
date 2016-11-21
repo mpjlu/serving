@@ -356,7 +356,6 @@ Status CaffeServingSession::CopyTrainedLayersFromBinaryProto(
     [](caffe::Net<float>* net,
        const caffe::NetParameter& param)
     {
-      // TODO(rayg): this can abort
       net->CopyTrainedLayersFrom(param);
       return Status::OK();
     },
