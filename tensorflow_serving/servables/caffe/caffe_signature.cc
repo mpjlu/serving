@@ -34,8 +34,7 @@ namespace tensorflow {
 namespace serving {
 
 Status GetSignatures(const CaffeMetaGraphDef& meta_graph_def,
-                     Signatures* signatures)
-{
+                     Signatures* signatures) {
   const std::vector<string>& ins = meta_graph_def.resolved_inputs;
   const std::vector<string>& outs = meta_graph_def.resolved_outputs;
 
@@ -49,36 +48,37 @@ Status GetSignatures(const CaffeMetaGraphDef& meta_graph_def,
   if (ins.size() == 1 && outs.size() == 1) {
     if (meta_graph_def.classes.dtype() != DT_INVALID) {
       // classification sig.
-      ClassificationSignature* s =
-        signatures->mutable_default_signature()->mutable_classification_signature();
+      ClassificationSignature* s = signatures->mutable_default_signature()
+                                       ->mutable_classification_signature();
 
       s->mutable_input()->set_tensor_name(ins[0]);
       s->mutable_scores()->set_tensor_name(outs[0]);
       s->mutable_classes()->set_tensor_name(kClassLabelTensorName);
-    }
-    else {
+    } else {
       // regression sig.
-      RegressionSignature* s =
-        signatures->mutable_default_signature()->mutable_regression_signature();
+      RegressionSignature* s = signatures->mutable_default_signature()
+                                   ->mutable_regression_signature();
 
       s->mutable_input()->set_tensor_name(ins[0]);
       s->mutable_output()->set_tensor_name(outs[0]);
     }
   }
 
-  { // compute generic named input signature
+  {  // compute generic named input signature
     GenericSignature* s = (*signatures->mutable_named_signatures())["inputs"]
-        .mutable_generic_signature();
+                              .mutable_generic_signature();
 
-    for (const auto& in : ins)
+    for (const auto& in : ins) {
       (*s->mutable_map())[in].set_tensor_name(in);
+    }
   }
-  { // compute generic named output signature
+  {  // compute generic named output signature
     GenericSignature* s = (*signatures->mutable_named_signatures())["outputs"]
-        .mutable_generic_signature();
+                              .mutable_generic_signature();
 
-    for (const auto& out : outs)
+    for (const auto& out : outs) {
       (*s->mutable_map())[out].set_tensor_name(out);
+    }
   }
 
   return Status::OK();

@@ -83,53 +83,47 @@ using tensorflow::serving::ClassificationSignature;
 using Resolution = std::pair<int32_t /* h */, int32_t /* w */>;
 using BundleType = tensorflow::serving::CaffeSessionBundle;
 
-
-
-namespace
-{
+namespace {
 const string USAGE = StrCat(
-    "Usage: obj_detector --port=<port> --resolution=<HxW> [--help]  /path/to/export",
+    "Usage: obj_detector --port=<port> --resolution=<HxW> [--help]  "
+    "/path/to/export",
     "\n",
     "\n  --port:        The port to listen on for RPC connections, e.g. 9000",
-    "\n  --resolution:  The resolution of image to accept, e.g. 800x600",
-    "\n"
-    );
+    "\n  --resolution:  The resolution of image to accept, e.g. 800x600", "\n");
 
 #if !defined(WITH_RCNN) && !defined(WITH_SSD)
 
-  static_assert(false, "\n\n INVALID BUILD CONFIGURATION: You must define a valid detector type! \n\n");
+static_assert(false,
+              "\n\n INVALID BUILD CONFIGURATION: You must define a valid "
+              "detector type! \n\n");
 
 #elif WITH_RCNN
 
-  const char*      TYPE_NAME = "Faster R-CNN";
-  const int32_t    MAX_BATCH_SIZE = 1;
-  const int32_t    BATCH_TIMEOUT = 0;
-  const Resolution DEFAULT_RES{ 600, 800 };
-  const int        NUM_CHANNELS = 3;
+const char* TYPE_NAME = "Faster R-CNN";
+const int32_t MAX_BATCH_SIZE = 1;
+const int32_t BATCH_TIMEOUT = 0;
+const Resolution DEFAULT_RES{600, 800};
+const int NUM_CHANNELS = 3;
 
-  inline ::pixel_means_type means() {
-    pixel_means_type m;
-    m.setValues({
-      { 102.9801 }, { 115.9465 }, { 122.7717 }
-    });
-    return m;
-  }
+inline ::pixel_means_type means() {
+  pixel_means_type m;
+  m.setValues({{102.9801}, {115.9465}, {122.7717}});
+  return m;
+}
 
 #elif WITH_SSD
 
-  const char*      TYPE_NAME = "SSD";
-  const int32_t    MAX_BATCH_SIZE = 24;
-  const int32_t    BATCH_TIMEOUT = 1000 * 8 /* 8ms */;
-  const Resolution DEFAULT_RES{ 300, 300 };
-  const int        NUM_CHANNELS = 3;
+const char* TYPE_NAME = "SSD";
+const int32_t MAX_BATCH_SIZE = 24;
+const int32_t BATCH_TIMEOUT = 1000 * 8 /* 8ms */;
+const Resolution DEFAULT_RES{300, 300};
+const int NUM_CHANNELS = 3;
 
-  inline ::pixel_means_type means() {
-    pixel_means_type m;
-    m.setValues({
-      { 104.0 }, { 117.0 }, { 123.0 }
-    });
-    return m;
-  }
+inline ::pixel_means_type means() {
+  pixel_means_type m;
+  m.setValues({{104.0}, {117.0}, {123.0}});
+  return m;
+}
 
 #endif
 
@@ -139,18 +133,18 @@ Status ToGRPCStatus(const tensorflow::Status& status) {
                 status.error_message());
 }
 
-namespace DetectorStub
-{
-  using AsyncService =
-      tensorflow::serving::DetectService::AsyncService;
+namespace DetectorStub {
+using AsyncService = tensorflow::serving::DetectService::AsyncService;
 
-  constexpr rpc_util::UnaryRequestStub<
-      AsyncService, tensorflow::serving::DetectRequest, tensorflow::serving::DetectResponse
-    > Detect { &AsyncService::RequestDetect };
+constexpr rpc_util::UnaryRequestStub<AsyncService,
+                                     tensorflow::serving::DetectRequest,
+                                     tensorflow::serving::DetectResponse>
+    Detect{&AsyncService::RequestDetect};
 
-  constexpr rpc_util::UnaryRequestStub<
-    AsyncService, tensorflow::serving::ConfigurationRequest, tensorflow::serving::DetectConfiguration
-    > GetConfiguration { &AsyncService::RequestGetConfiguration };
+constexpr rpc_util::UnaryRequestStub<AsyncService,
+                                     tensorflow::serving::ConfigurationRequest,
+                                     tensorflow::serving::DetectConfiguration>
+    GetConfiguration{&AsyncService::RequestGetConfiguration};
 }
 
 struct Task;
@@ -167,11 +161,9 @@ class DetectServiceImpl final {
   void GetConfiguration(
       decltype(DetectorStub::GetConfiguration)::Handle* call_data);
 
-  void Detect(
-      decltype(DetectorStub::Detect)::Handle* call_data);
+  void Detect(decltype(DetectorStub::Detect)::Handle* call_data);
 
-  void DoDetectInBatch(
-      std::unique_ptr<tensorflow::serving::Batch<Task>> batch);
+  void DoDetectInBatch(std::unique_ptr<tensorflow::serving::Batch<Task>> batch);
 
   tensorflow::Status DoDetectInBatch_impl(
       const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch);
@@ -198,15 +190,15 @@ struct Task : public tensorflow::serving::BatchTask {
 };
 
 DetectServiceImpl::DetectServiceImpl(
-    const string& servable_name,
-    const Resolution input_resolution,
+    const string& servable_name, const Resolution input_resolution,
     std::unique_ptr<tensorflow::serving::Manager> manager)
-  : servable_req_(tensorflow::serving::ServableRequest::Latest(servable_name))
-  , input_resolution_(input_resolution)
-  , img_buffsize_(NUM_CHANNELS * std::get<0>(input_resolution) * std::get<1>(input_resolution))
-  , img_pixel_means_(means())
-  , manager_(std::move(manager))
-{
+    : servable_req_(
+          tensorflow::serving::ServableRequest::Latest(servable_name)),
+      input_resolution_(input_resolution),
+      img_buffsize_(NUM_CHANNELS * std::get<0>(input_resolution) *
+                    std::get<1>(input_resolution)),
+      img_pixel_means_(means()),
+      manager_(std::move(manager)) {
   tensorflow::serving::BasicBatchScheduler<Task>::Options sched_opts;
   sched_opts.thread_pool_name = "detector_batch_threads";
   sched_opts.max_enqueued_batches = 250 / MAX_BATCH_SIZE;
@@ -220,25 +212,23 @@ DetectServiceImpl::DetectServiceImpl(
       &batch_scheduler_));
 }
 
-void DetectServiceImpl::Serve(
-    ::grpc::ServerCompletionQueue* cq, DetectorStub::AsyncService* s)
-{
-  rpc_util::begin_async_unary(this,
-    DetectorStub::Detect, s, cq,
-    [](DetectServiceImpl* impl, decltype(DetectorStub::Detect)::Handle* data) {
-      impl->Detect(data);
-    });
+void DetectServiceImpl::Serve(::grpc::ServerCompletionQueue* cq,
+                              DetectorStub::AsyncService* s) {
+  rpc_util::begin_async_unary(
+      this, DetectorStub::Detect, s, cq,
+      [](DetectServiceImpl* impl,
+         decltype(DetectorStub::Detect)::Handle* data) { impl->Detect(data); });
 
-  rpc_util::begin_async_unary(this,
-    DetectorStub::GetConfiguration, s, cq,
-    [](DetectServiceImpl* impl, decltype(DetectorStub::GetConfiguration)::Handle* data) {
-      impl->GetConfiguration(data);
-    });
+  rpc_util::begin_async_unary(
+      this, DetectorStub::GetConfiguration, s, cq,
+      [](DetectServiceImpl* impl,
+         decltype(DetectorStub::GetConfiguration)::Handle* data) {
+        impl->GetConfiguration(data);
+      });
 }
 
 void DetectServiceImpl::GetConfiguration(
-    decltype(DetectorStub::GetConfiguration)::Handle* call_data)
-{
+    decltype(DetectorStub::GetConfiguration)::Handle* call_data) {
   int32_t w, h;
   std::tie(w, h) = input_resolution_;
 
@@ -251,15 +241,14 @@ void DetectServiceImpl::GetConfiguration(
 }
 
 void DetectServiceImpl::Detect(
-    decltype(DetectorStub::Detect)::Handle* calldata)
-{
+    decltype(DetectorStub::Detect)::Handle* calldata) {
   // Verify input.
   if (calldata->request().image_data().size() != img_buffsize_) {
-    calldata->Finish(
-        Status(StatusCode::INVALID_ARGUMENT,
-               tensorflow::strings::StrCat(
-                   "expected image_data of size ", img_buffsize_,
-                   ", got ", calldata->request().image_data().size())));
+    calldata->Finish(Status(
+        StatusCode::INVALID_ARGUMENT,
+        tensorflow::strings::StrCat("expected image_data of size ",
+                                    img_buffsize_, ", got ",
+                                    calldata->request().image_data().size())));
     return;
   }
   // Create and submit a task to the batch scheduler.
@@ -273,8 +262,7 @@ void DetectServiceImpl::Detect(
 }
 
 void DetectServiceImpl::DoDetectInBatch(
-    std::unique_ptr<tensorflow::serving::Batch<Task>> batch) 
-{
+    std::unique_ptr<tensorflow::serving::Batch<Task>> batch) {
   // either the entire batch succeeds or fails
   Status status = ToGRPCStatus(DoDetectInBatch_impl(batch));
   // complete the task with the given status
@@ -285,10 +273,11 @@ void DetectServiceImpl::DoDetectInBatch(
 }
 
 tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
-    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch)
-{
+    const std::unique_ptr<tensorflow::serving::Batch<Task>>& batch) {
   batch->WaitUntilClosed();
-  if (batch->empty()) { return tensorflow::Status::OK(); }
+  if (batch->empty()) {
+    return tensorflow::Status::OK();
+  }
 
   const int batch_size = batch->num_tasks();
   std::vector<float> batch_min_thresholds(batch_size);
@@ -299,7 +288,7 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
     for (int i = 0; i < batch_size; ++i) {
       const auto& req = batch->mutable_task(i)->calldata->request();
       std::transform(req.image_data().begin(), req.image_data().end(), dst,
-          [](const uint8_t& a) { return static_cast<float>(a); });
+                     [](const uint8_t& a) { return static_cast<float>(a); });
       dst += img_buffsize_;
       batch_min_thresholds[i] = req.min_score_threshold();
     }
@@ -328,9 +317,9 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
       dst[2] = 1.0 /* scale */;
     }
 
-    TF_RETURN_IF_ERROR(rcnn::RunClassification(
-        im_blob, im_info, bundle->session.get(),
-        &boxes, &scores, &class_labels));
+    TF_RETURN_IF_ERROR(rcnn::RunClassification(im_blob, im_info,
+                                               bundle->session.get(), &boxes,
+                                               &scores, &class_labels));
 
     TF_RETURN_IF_ERROR(rcnn::ProcessDetections(
         &boxes, &scores, batch_min_thresholds[0], &dets[0]));
@@ -338,13 +327,13 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
 #elif WITH_SSD
   {
     tensorflow::serving::ClassificationSignature signature;
-    TF_RETURN_IF_ERROR(GetClassificationSignature(
-        bundle->meta_graph_def, &signature));
+    TF_RETURN_IF_ERROR(
+        GetClassificationSignature(bundle->meta_graph_def, &signature));
     {
       std::vector<Tensor> outputs;
       TF_RETURN_IF_ERROR(bundle->session.get()->Run(
-          {{ signature.input().tensor_name(), im_blob }},
-          { signature.classes().tensor_name(), signature.scores().tensor_name() },
+          {{signature.input().tensor_name(), im_blob}},
+          {signature.classes().tensor_name(), signature.scores().tensor_name()},
           {}, &outputs));
 
       class_labels = outputs[0];
@@ -352,20 +341,16 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
     }
 
     const int n = scores.dim_size(2);
-    const auto out_mat = scores.shaped<float, 2>({ n, 7 });
+    const auto out_mat = scores.shaped<float, 2>({n, 7});
 
-    for (int i=0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
       int image_id = static_cast<int>(out_mat(i, 0));
-      ::ObjDetection det {
-          std::array<int, 4>{
-            static_cast<int>(out_mat(i, 3) * w),
-            static_cast<int>(out_mat(i, 4) * h),
-            static_cast<int>(out_mat(i, 5) * w),
-            static_cast<int>(out_mat(i, 6) * h)
-          },
-          static_cast<int>(out_mat(i, 1)),
-          out_mat(i, 2)
-        };
+      ::ObjDetection det{
+          std::array<int, 4>{static_cast<int>(out_mat(i, 3) * w),
+                             static_cast<int>(out_mat(i, 4) * h),
+                             static_cast<int>(out_mat(i, 5) * w),
+                             static_cast<int>(out_mat(i, 6) * h)},
+          static_cast<int>(out_mat(i, 1)), out_mat(i, 2)};
       dets[image_id].push_back(det);
     }
   }
@@ -379,11 +364,9 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
         calldata->mutable_response();
 
     for (const auto& det : dets[i]) {
-      if (det.class_idx == 0)
-        continue;
+      if (det.class_idx == 0) continue;
 
-      if (det.score < batch_min_thresholds[i])
-        continue;
+      if (det.score < batch_min_thresholds[i]) continue;
 
       tensorflow::serving::Detection* det_proto = resp->add_detections();
       det_proto->set_roi_x1(det.roi_rect[0]);
@@ -399,8 +382,7 @@ tensorflow::Status DetectServiceImpl::DoDetectInBatch_impl(
 
 void HandleRpcs(DetectServiceImpl* service_impl,
                 DetectorStub::AsyncService* service,
-                ServerCompletionQueue* cq)
-{
+                ServerCompletionQueue* cq) {
   service_impl->Serve(cq, service);
 
   void* tag;  // uniquely identifies a request.
@@ -416,12 +398,9 @@ void HandleRpcs(DetectServiceImpl* service_impl,
 }
 
 // Runs DetectService server until shutdown.
-void RunServer(
-    const int port,
-    const string& servable_name,
-    const Resolution resolution,
-    std::unique_ptr<tensorflow::serving::Manager> manager)
-{
+void RunServer(const int port, const string& servable_name,
+               const Resolution resolution,
+               std::unique_ptr<tensorflow::serving::Manager> manager) {
   // "0.0.0.0" is the way to listen on localhost in gRPC.
   const string server_address = "0.0.0.0:" + std::to_string(port);
 
@@ -444,18 +423,12 @@ string proc_path() {
   return string(result, (count > 0) ? count : 0);
 }
 
-void parse_cmdline(
-    int& argc, char** argv,
-    tensorflow::int32& port,
-    Resolution& resolution,
-    std::string& export_base_path)
-{
+void parse_cmdline(int& argc, char** argv, tensorflow::int32& port,
+                   Resolution& resolution, std::string& export_base_path) {
   std::string resolution_str;
-  const bool parse_result =
-      tensorflow::ParseFlags(&argc, argv, {
-        tensorflow::Flag("port", &port),
-        tensorflow::Flag("resolution", &resolution_str)
-      });
+  const bool parse_result = tensorflow::ParseFlags(
+      &argc, argv, {tensorflow::Flag("port", &port),
+                    tensorflow::Flag("resolution", &resolution_str)});
 
   if (!parse_result) {
     LOG(FATAL) << "Error parsing command line flags.";
@@ -477,8 +450,7 @@ void parse_cmdline(
       LOG(FATAL) << "Invalid image resolution";
     }
     resolution = std::make_pair(dims[0] /* h */, dims[1] /* w */);
-  }
-  else {
+  } else {
     resolution = DEFAULT_RES;
   }
   if (argc != 2) {
@@ -495,10 +467,9 @@ int main(int argc, char** argv) {
   std::string export_base_path;
   parse_cmdline(argc, argv, port, res, export_base_path);
 
-  LOG(INFO)
-    << "Detector type: " << TYPE_NAME
-    << "\n  Input resolution: h=" << std::get<0>(res)
-    << "px, w=" << std::get<1>(res) << "px";
+  LOG(INFO) << "Detector type: " << TYPE_NAME
+            << "\n  Input resolution: h=" << std::get<0>(res)
+            << "px, w=" << std::get<1>(res) << "px";
 
   // Initialize Caffe subsystem
   tensorflow::serving::CaffeGlobalInit(&argc, &argv);
@@ -512,11 +483,12 @@ int main(int argc, char** argv) {
       // enable pycaffe
       bundle_cfg->set_enable_py_caffe(true);
       // add path to pycaffe python module(s)
-      bundle_cfg->add_python_path(StrCat(proc_path(),
+      bundle_cfg->add_python_path(StrCat(
+          proc_path(),
           ".runfiles/tf_serving/tensorflow_serving/servables/caffe/pycaffe"));
       // add path to py-faster-rcnn
       bundle_cfg->add_python_path(export_base_path + "/lib");
-      shape = &(*bundle_cfg->mutable_named_initial_shapes())[ "data" ];
+      shape = &(*bundle_cfg->mutable_named_initial_shapes())["data"];
     }
 #elif WITH_SSD
     shape = bundle_cfg->mutable_initial_shape();
@@ -530,7 +502,8 @@ int main(int argc, char** argv) {
   }
   std::unique_ptr<tensorflow::serving::Manager> manager;
   tensorflow::Status status = tensorflow::serving::simple_servers::
-      CreateSingleCaffeModelManagerFromBasePath(export_base_path, source_adapter_config, &manager);
+      CreateSingleCaffeModelManagerFromBasePath(
+          export_base_path, source_adapter_config, &manager);
 
   TF_CHECK_OK(status) << "Error creating manager";
 

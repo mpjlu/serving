@@ -31,8 +31,7 @@ struct CaffeSessionBundle {
 // Loads a manifest and initialized session using the output of an Exporter
 tensorflow::Status LoadSessionBundleFromPath(
     const CaffeSessionOptions& options,
-    const tensorflow::StringPiece export_dir,
-    CaffeSessionBundle* bundle);
+    const tensorflow::StringPiece export_dir, CaffeSessionBundle* bundle);
 
 }  // namespace serving
 }  // namespace tensorflow

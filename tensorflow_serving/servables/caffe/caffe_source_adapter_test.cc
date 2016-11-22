@@ -48,14 +48,12 @@ class CaffeSourceAdapterTest : public ::testing::Test {
  protected:
   CaffeSourceAdapterTest()
       : export_dir_(test_util::TestSrcDirPath(
-          "servables/caffe/test_data/mnist_pretrained_caffe/00000023")) {}
+            "servables/caffe/test_data/mnist_pretrained_caffe/00000023")) {}
 
   // Test data path, to be initialized to point at an export of half-plus-two.
   const string export_dir_;
 
-  void TestSessionBundleSourceAdapter(
-      const CaffeSourceAdapterConfig& config) {
-
+  void TestSessionBundleSourceAdapter(const CaffeSourceAdapterConfig& config) {
     std::unique_ptr<CaffeSourceAdapter> adapter;
     TF_CHECK_OK(CaffeSourceAdapter::Create(config, &adapter));
 
@@ -77,7 +75,8 @@ class CaffeSourceAdapterTest : public ::testing::Test {
 
     TF_ASSERT_OK(loader->Load(ResourceAllocation()));
 
-    const CaffeSessionBundle* bundle = loader->servable().get<CaffeSessionBundle>();
+    const CaffeSessionBundle* bundle =
+        loader->servable().get<CaffeSessionBundle>();
     ASSERT_EQ(bundle->meta_graph_def.resolved_inputs.size(), 1);
     ASSERT_EQ(bundle->meta_graph_def.resolved_inputs[0], "images");
 

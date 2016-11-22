@@ -5,8 +5,7 @@
 #include "grpc++/support/status.h"
 #include "grpc/grpc.h"
 
-namespace rpc_util
-{
+namespace rpc_util {
 class RpcHandleBase {
  public:
   virtual ~RpcHandleBase() = default;
@@ -15,10 +14,7 @@ class RpcHandleBase {
 
 // Class encompassing the state and logic needed to serve a
 // unary encoding request asynchronously.
-template <
-  typename TRequest,
-  typename TResponse
-  >
+template <typename TRequest, typename TResponse>
 class UnaryRequestHandleBase : public RpcHandleBase {
  public:
   UnaryRequestHandleBase(::grpc::ServerCompletionQueue* cq);
@@ -51,23 +47,19 @@ class UnaryRequestHandleBase : public RpcHandleBase {
   enum { CREATE, PROCESS, FINISH } status_;
 };
 
-
-template<typename S, typename Req, typename Res>
-struct UnaryRequestStub
-{
+template <typename S, typename Req, typename Res>
+struct UnaryRequestStub {
   typedef S Service;
   typedef Req Request;
   typedef Res Response;
   typedef UnaryRequestHandleBase<Req, Res> Handle;
 
-  typedef void (S::* type)(::grpc::ServerContext*,
-                           Req*,
-                           ::grpc::ServerAsyncResponseWriter<Res>*,
-                           ::grpc::CompletionQueue*,
-                           ::grpc::ServerCompletionQueue*,
-                           void*);
+  typedef void (S::*type)(::grpc::ServerContext*, Req*,
+                          ::grpc::ServerAsyncResponseWriter<Res>*,
+                          ::grpc::CompletionQueue*,
+                          ::grpc::ServerCompletionQueue*, void*);
 
-  constexpr UnaryRequestStub(type fn) : fn_{ fn } {}
+  constexpr UnaryRequestStub(type fn) : fn_{fn} {}
   constexpr type fn() { return fn_; }
 
   const type fn_;
@@ -75,51 +67,41 @@ struct UnaryRequestStub
 
 template <typename TBatton, typename TStub>
 class UnaryRequestFn final
-  : public UnaryRequestHandleBase<
-        typename TStub::Request,
-        typename TStub::Response
-      >
-{
+    : public UnaryRequestHandleBase<typename TStub::Request,
+                                    typename TStub::Response> {
  public:
   using TRequest = typename TStub::Request;
   using TResponse = typename TStub::Response;
   using TService = typename TStub::Service;
-  using Fn = std::function<
-        void(TBatton batton, UnaryRequestHandleBase<TRequest, TResponse>*)
-      >;
+  using Fn = std::function<void(TBatton batton,
+                                UnaryRequestHandleBase<TRequest, TResponse>*)>;
 
-  static void Begin(
-      TBatton batton, ::grpc::ServerCompletionQueue* cq,
-      TService* service, Fn fn, const TStub stub) {
+  static void Begin(TBatton batton, ::grpc::ServerCompletionQueue* cq,
+                    TService* service, Fn fn, const TStub stub) {
     new UnaryRequestFn<TBatton, TStub>(batton, cq, service, fn, stub.fn());
   }
 
  protected:
   virtual void RequestAsyncUnary(TRequest* req) override {
-    (service_->*serv_p_)(&(this->ctx_), req, &(this->responder_),
-        this->cq_, this->cq_, this);
+    (service_->*serv_p_)(&(this->ctx_), req, &(this->responder_), this->cq_,
+                         this->cq_, this);
   }
 
   virtual void Process() override {
-    new UnaryRequestFn<TBatton, TStub>(
-        batton_, this->cq_, service_, fn_, serv_p_);
+    new UnaryRequestFn<TBatton, TStub>(batton_, this->cq_, service_, fn_,
+                                       serv_p_);
 
     fn_(batton_, this);
   }
 
  private:
-  UnaryRequestFn(
-      TBatton batton,
-      ::grpc::ServerCompletionQueue* cq,
-      TService* service,
-      Fn fn,
-      const typename TStub::type serv_p)
-    : UnaryRequestHandleBase<TRequest, TResponse>(cq)
-    , serv_p_{ serv_p }
-    , fn_{ fn }
-    , service_{ service }
-    , batton_{ batton }
-  {
+  UnaryRequestFn(TBatton batton, ::grpc::ServerCompletionQueue* cq,
+                 TService* service, Fn fn, const typename TStub::type serv_p)
+      : UnaryRequestHandleBase<TRequest, TResponse>(cq),
+        serv_p_{serv_p},
+        fn_{fn},
+        service_{service},
+        batton_{batton} {
     this->Proceed();
   }
 
@@ -129,32 +111,24 @@ class UnaryRequestFn final
   TBatton batton_;
 };
 
-template<typename TBatton, typename TStub, typename Fn>
-void begin_async_unary(
-    TBatton&& batton,
-    const TStub stub,
-    typename TStub::Service* s,
-    ::grpc::ServerCompletionQueue* cq,
-    Fn&& call
-) {
-  UnaryRequestFn<TBatton, TStub>::
-      Begin(std::forward<TBatton>(batton), cq, s,
-            std::forward<Fn>(call), stub);
+template <typename TBatton, typename TStub, typename Fn>
+void begin_async_unary(TBatton&& batton, const TStub stub,
+                       typename TStub::Service* s,
+                       ::grpc::ServerCompletionQueue* cq, Fn&& call) {
+  UnaryRequestFn<TBatton, TStub>::Begin(std::forward<TBatton>(batton), cq, s,
+                                        std::forward<Fn>(call), stub);
 };
 
 /////////////////////////////////////////////
 // Implementation
 //
 
-template<typename Req, typename Res>
+template <typename Req, typename Res>
 UnaryRequestHandleBase<Req, Res>::UnaryRequestHandleBase(
-      grpc::ServerCompletionQueue* cq)
-    : cq_(cq)
-    , responder_(&ctx_)
-    , status_(CREATE) {
-}
+    grpc::ServerCompletionQueue* cq)
+    : cq_(cq), responder_(&ctx_), status_(CREATE) {}
 
-template<typename Req, typename Res>
+template <typename Req, typename Res>
 void UnaryRequestHandleBase<Req, Res>::Proceed() {
   if (status_ == CREATE) {
     // As part of the initial CREATE state, we *request* that the system
@@ -165,20 +139,18 @@ void UnaryRequestHandleBase<Req, Res>::Proceed() {
     RequestAsyncUnary(&request_);
     // Make this instance progress to the PROCESS state.
     status_ = PROCESS;
-  }
-  else if (status_ == PROCESS) {
+  } else if (status_ == PROCESS) {
     Process();
-  }
-  else {
+  } else {
     GPR_ASSERT(status_ == FINISH);
     // deallocate this request
     delete this;
   }
 }
 
-template<typename Req, typename Res>
+template <typename Req, typename Res>
 void UnaryRequestHandleBase<Req, Res>::Finish(grpc::Status status) {
   status_ = FINISH;
   responder_.Finish(response_, status, this);
 }
-} // namespace rpc_util
+}  // namespace rpc_util

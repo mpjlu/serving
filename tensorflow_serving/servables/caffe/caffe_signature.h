@@ -28,9 +28,8 @@ Status GetNamedSignature(const string& name,
 // Gets a ClassificationSignature from a MetaGraphDef's default signature.
 // Returns an error if the default signature is not a ClassificationSignature,
 // or does not exist.
-Status GetClassificationSignature(
-    const CaffeMetaGraphDef& meta_graph_def,
-    ClassificationSignature* signature);
+Status GetClassificationSignature(const CaffeMetaGraphDef& meta_graph_def,
+                                  ClassificationSignature* signature);
 
 // Gets a RegressionSignature from a MetaGraphDef's default signature.
 // Returns an error if the default signature is not a RegressionSignature,
@@ -38,5 +37,5 @@ Status GetClassificationSignature(
 Status GetRegressionSignature(const CaffeMetaGraphDef& meta_graph_def,
                               RegressionSignature* signature);
 
-} // namespace
-} // namespace
+}  // namespace
+}  // namespace

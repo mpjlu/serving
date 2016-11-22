@@ -10,32 +10,27 @@
 #include "simple_thread_sink.h"
 
 // the constructor just launches some amount of workers
-SimpleThreadSink::SimpleThreadSink()
-    : stop_(false)
-{
-  worker_ = std::thread(
-    [this] {
-      for(;;) {
-        std::function<void()> task;
-        {
-          std::unique_lock<std::mutex> lock(this->queue_mutex_);
-          this->condition_.wait(lock,
-            [this]{ return this->stop_ || !this->tasks_.empty(); });
+SimpleThreadSink::SimpleThreadSink() : stop_(false) {
+  worker_ = std::thread([this] {
+    for (;;) {
+      std::function<void()> task;
+      {
+        std::unique_lock<std::mutex> lock(this->queue_mutex_);
+        this->condition_.wait(
+            lock, [this] { return this->stop_ || !this->tasks_.empty(); });
 
-          if (this->stop_ && this->tasks_.empty())
-            return;
+        if (this->stop_ && this->tasks_.empty()) return;
 
-          task = std::move(this->tasks_.front());
-          this->tasks_.pop();
-        }
-        task();
+        task = std::move(this->tasks_.front());
+        this->tasks_.pop();
       }
-    });
+      task();
+    }
+  });
 }
 
 // stop and join the worker thread
-SimpleThreadSink::~SimpleThreadSink()
-{
+SimpleThreadSink::~SimpleThreadSink() {
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
     stop_ = true;

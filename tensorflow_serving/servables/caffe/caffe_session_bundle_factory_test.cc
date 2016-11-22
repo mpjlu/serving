@@ -48,7 +48,7 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
  protected:
   CaffeSessionBundleFactoryTest()
       : export_dir_(test_util::TestSrcDirPath(
-          "servables/caffe/test_data/mnist_pretrained_caffe/00000023")) {
+            "servables/caffe/test_data/mnist_pretrained_caffe/00000023")) {
     input_sample_ = mnist_sample_28x28();
   }
 
@@ -62,9 +62,8 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
     ASSERT_EQ(28 * 28, input_sample_.size());
     gtl::ArraySlice<float> input_slice(input_sample_);
 
-    std::vector<std::pair<string, Tensor>> inputs {
-      {"images", test::AsTensor(input_slice, {1, 1, 28, 28}) }
-    };
+    std::vector<std::pair<string, Tensor>> inputs{
+        {"images", test::AsTensor(input_slice, {1, 1, 28, 28})}};
     std::vector<Tensor> outputs;
 
     TF_ASSERT_OK(bundle->session->Run(inputs, {"scores"}, {}, &outputs));
@@ -73,9 +72,8 @@ class CaffeSessionBundleFactoryTest : public ::testing::Test {
       ASSERT_EQ(outputs[0].NumElements(), 10);
       // convert result to tensor
       {
-        Tensor expected_output = test::AsTensor<float>(
-          { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 }, { 1, 10 }
-        );
+        Tensor expected_output =
+            test::AsTensor<float>({0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, {1, 10});
         test::ExpectTensorNear<float>(expected_output, outputs[0], 0.05);
       }
     }
@@ -90,8 +88,8 @@ class CaffeSessionBundleFactoryPyTest : public ::testing::Test {
  protected:
   CaffeSessionBundleFactoryPyTest()
       : export_dir_(test_util::TestSrcDirPath(
-          "servables/caffe/test_data/py_layers/00000001"))
-      , input_sample_(0) {
+            "servables/caffe/test_data/py_layers/00000001")),
+        input_sample_(0) {
     input_sample_.resize(9 * 8, 7.0);
   }
 
@@ -104,9 +102,8 @@ class CaffeSessionBundleFactoryPyTest : public ::testing::Test {
     ASSERT_EQ(9 * 8, input_sample_.size());
     gtl::ArraySlice<float> input_slice(input_sample_);
 
-    std::vector<std::pair<string, Tensor>> inputs {
-      { "data", test::AsTensor(input_slice, {1, 9, 8}) }
-    };
+    std::vector<std::pair<string, Tensor>> inputs{
+        {"data", test::AsTensor(input_slice, {1, 9, 8})}};
     std::vector<Tensor> outputs;
 
     TF_ASSERT_OK(bundle->session->Run(inputs, {"three"}, {}, &outputs));
@@ -155,7 +152,8 @@ TEST_F(CaffeSessionBundleFactoryTest, Batching) {
   }
 }
 
-TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithBadExport) {
+TEST_F(CaffeSessionBundleFactoryTest,
+       EstimateResourceRequirementWithBadExport) {
   const CaffeSessionBundleConfig config;
   std::unique_ptr<CaffeSessionBundleFactory> factory;
 
@@ -168,10 +166,12 @@ TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithBadExport) 
   EXPECT_FALSE(status.ok());
 }
 
-TEST_F(CaffeSessionBundleFactoryTest, EstimateResourceRequirementWithGoodExport) {
+TEST_F(CaffeSessionBundleFactoryTest,
+       EstimateResourceRequirementWithGoodExport) {
   const uint64 kVariableFileSize = 1724991 /* bytes (approx. 1.6 MB) */;
   const uint64 expected_ram_requirement =
-      kVariableFileSize * CaffeSessionBundleFactory::kResourceEstimateRAMMultiplier +
+      kVariableFileSize *
+          CaffeSessionBundleFactory::kResourceEstimateRAMMultiplier +
       CaffeSessionBundleFactory::kResourceEstimateRAMPadBytes;
 
   ResourceAllocation want;
@@ -195,7 +195,8 @@ TEST_F(CaffeSessionBundleFactoryPyTest, PythonLayer) {
 #ifndef WITH_PYTHON_LAYER
   // do nothing if pycaffe is not enabled
   ASSERT_FALSE(IsPyCaffeAvailable());
-  LOG(WARNING) << "[CaffeSessionBundleFactoryPyTest] skipped because pycaffe unavailable\n"
+  LOG(WARNING) << "[CaffeSessionBundleFactoryPyTest] skipped because pycaffe "
+                  "unavailable\n"
                << "    (compile with --define=caffe_python_layer=ON)";
 #else
   ASSERT_TRUE(IsPyCaffeAvailable());

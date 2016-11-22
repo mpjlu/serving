@@ -35,13 +35,13 @@ CaffeSessionOptions GetSessionOptions(const CaffeSessionBundleConfig& config) {
   options.force_cpu_only = config.force_cpu_only();
   options.force_gpu_id = config.force_gpu_id();
 
-  auto transform_shape =
-      [](const TensorShapeProto& in, CaffeSessionOptions::blob_shape* out) {
-        std::transform(std::begin(in.dim()), std::end(in.dim()), out->begin(),
-            [](const TensorShapeProto_Dim& dim) { return dim.size(); });
-      };
+  auto transform_shape = [](const TensorShapeProto& in,
+                            CaffeSessionOptions::blob_shape* out) {
+    std::transform(std::begin(in.dim()), std::end(in.dim()), out->begin(),
+                   [](const TensorShapeProto_Dim& dim) { return dim.size(); });
+  };
 
-  { // initial shape
+  {  // initial shape
     const auto& is = config.initial_shape();
     if (!is.unknown_rank() && is.dim_size() > 0) {
       options.initial_shape.reset(
@@ -49,7 +49,7 @@ CaffeSessionOptions GetSessionOptions(const CaffeSessionBundleConfig& config) {
       transform_shape(is, options.initial_shape.get());
     }
   }
-  { // initial named shapes
+  {  // initial named shapes
     const auto& is = config.named_initial_shapes();
     for (const auto& kvp : is) {
       std::pair<string, CaffeSessionOptions::blob_shape> p = std::make_pair(
@@ -69,8 +69,7 @@ constexpr int CaffeSessionBundleFactory::kResourceEstimateRAMPadBytes;
 
 Status CaffeSessionBundleFactory::Create(
     const CaffeSessionBundleConfig& config,
-    std::unique_ptr<CaffeSessionBundleFactory>* factory)
-{
+    std::unique_ptr<CaffeSessionBundleFactory>* factory) {
   std::shared_ptr<Batcher> batcher;
   // Populate 'batcher' if batching is configured.
   if (config.has_batching_parameters()) {
@@ -86,7 +85,8 @@ Status CaffeSessionBundleFactory::Create(
       if (last_allowed_size != max_size) {
         return errors::InvalidArgument(
             "Last entry in allowed_batch_sizes must match max_batch_size; last "
-            "entry was ", last_allowed_size, "; expected ", max_size);
+            "entry was ",
+            last_allowed_size, "; expected ", max_size);
       }
     }
 
@@ -104,8 +104,7 @@ Status CaffeSessionBundleFactory::Create(
 }
 
 Status CaffeSessionBundleFactory::EstimateResourceRequirement(
-    const string& path, ResourceAllocation* estimate) const
-{
+    const string& path, ResourceAllocation* estimate) const {
   const string file_path = io::JoinPath(path, kVariablesFilename);
   if (!Env::Default()->FileExists(file_path)) {
     return errors::NotFound("Nonexistent export path: ", file_path);
@@ -114,8 +113,7 @@ Status CaffeSessionBundleFactory::EstimateResourceRequirement(
   TF_RETURN_IF_ERROR(Env::Default()->GetFileSize(file_path, &file_size));
 
   const uint64 ram_requirement =
-      file_size * kResourceEstimateRAMMultiplier +
-      kResourceEstimateRAMPadBytes;
+      file_size * kResourceEstimateRAMMultiplier + kResourceEstimateRAMPadBytes;
 
   ResourceAllocation::Entry* ram_entry = estimate->add_resource_quantities();
   Resource* ram_resource = ram_entry->mutable_resource();
@@ -127,9 +125,7 @@ Status CaffeSessionBundleFactory::EstimateResourceRequirement(
 }
 
 Status CaffeSessionBundleFactory::CreateSessionBundle(
-    const string& path,
-    std::unique_ptr<CaffeSessionBundle>* bundle)
-{
+    const string& path, std::unique_ptr<CaffeSessionBundle>* bundle) {
   // py-caffe initialization
   if (this->config_.enable_py_caffe()) {
     if (!IsPyCaffeAvailable()) {
@@ -151,13 +147,12 @@ Status CaffeSessionBundleFactory::CreateSessionBundle(
 }
 
 CaffeSessionBundleFactory::CaffeSessionBundleFactory(
-    const CaffeSessionBundleConfig& config, std::shared_ptr<Batcher> batch_scheduler)
-  : config_(config)
-  , batch_scheduler_(batch_scheduler) {
-}
+    const CaffeSessionBundleConfig& config,
+    std::shared_ptr<Batcher> batch_scheduler)
+    : config_(config), batch_scheduler_(batch_scheduler) {}
 
-Status CaffeSessionBundleFactory::WrapSessionForBatching(CaffeSessionBundle* bundle)
-{
+Status CaffeSessionBundleFactory::WrapSessionForBatching(
+    CaffeSessionBundle* bundle) {
   LOG(INFO) << "Wrapping SessionBundle session to perform batch processing";
 
   if (batch_scheduler_ == nullptr) {

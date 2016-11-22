@@ -36,11 +36,10 @@ using tensorflow::string;
 using tensorflow::Tensor;
 
 tensorflow::Status Run(tensorflow::Session* session,
-           const PredictRequest& request,
-           const GenericSignature& input_signature,
-           const GenericSignature& output_signature,
-           PredictResponse* response) {
-
+                       const PredictRequest& request,
+                       const GenericSignature& input_signature,
+                       const GenericSignature& output_signature,
+                       PredictResponse* response) {
   // Verify and prepare input.
   if (request.inputs().size() != input_signature.map().size()) {
     return tensorflow::Status(tensorflow::error::INVALID_ARGUMENT,
@@ -95,8 +94,7 @@ tensorflow::Status Run(tensorflow::Session* session,
 
   // Run session.
   std::vector<Tensor> outputs;
-  TF_RETURN_IF_ERROR(
-      session->Run(inputs, output_tensor_names, {}, &outputs));
+  TF_RETURN_IF_ERROR(session->Run(inputs, output_tensor_names, {}, &outputs));
 
   // Validate and return output.
   if (outputs.size() != output_tensor_names.size()) {
@@ -110,14 +108,14 @@ tensorflow::Status Run(tensorflow::Session* session,
 
   return tensorflow::Status::OK();
 }
-} // namespace
+}  // namespace
 
 namespace tensorflow {
 namespace serving {
 
 tensorflow::Status CaffePredictImpl::Predict(ServerCore* core,
-                                 const PredictRequest& request,
-                                 PredictResponse* response) {
+                                             const PredictRequest& request,
+                                             PredictResponse* response) {
   if (!request.has_model_spec()) {
     return tensorflow::Status(tensorflow::error::INVALID_ARGUMENT,
                               "Missing ModelSpec");
@@ -143,10 +141,9 @@ tensorflow::Status CaffePredictImpl::Predict(ServerCore* core,
         "'outputs' named signature is not a generic signature");
   }
   GenericSignature output_signature = signature.generic_signature();
-  return Run(bundle->session.get(), request, input_signature, output_signature, response);
+  return Run(bundle->session.get(), request, input_signature, output_signature,
+             response);
 }
-
-
 
 }  // namespace serving
 }  // namespace tensorflow

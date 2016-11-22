@@ -20,9 +20,8 @@ using tensorflow::Tensor;
 using tensorflow::TensorShape;
 
 // for each image in the minibatch, perform means subtraction
-tensorflow::Status BatchMeansSubtract(
-    const pixel_means_type& bgr_mean,
-    Tensor* im_batch_blob) {
+tensorflow::Status BatchMeansSubtract(const pixel_means_type& bgr_mean,
+                                      Tensor* im_batch_blob) {
   using namespace Eigen;
 
   auto im_batch_bgr = im_batch_blob->matrix<float>();
@@ -43,16 +42,15 @@ tensorflow::Status BatchMeansSubtract(
     auto im_bgr = im_batch_bgr.slice(off, ext).reshape(dim2);
 
     // apply mean-subtraction
-    im_bgr -= bgr_mean.broadcast(Eigen::array<int64_t, 2>{{ 1, dim2[1] }});
+    im_bgr -= bgr_mean.broadcast(Eigen::array<int64_t, 2>{{1, dim2[1]}});
   }
   return tensorflow::Status::OK();
 }
 
 namespace {
 const std::vector<string>* output_tensor_names() {
-  static std::vector<string> output {
-    "cls_prob", "bbox_pred", "rois", "__labels__"
-  };
+  static std::vector<string> output{"cls_prob", "bbox_pred", "rois",
+                                    "__labels__"};
   return &output;
 }
 
@@ -66,8 +64,8 @@ static inline void DecreasingArgSort(const std::vector<float>& values,
 }
 
 // Compute intersection-over-union overlap between boxes i and j.
-static inline float ComputeIOU(const Eigen::Tensor<float, 2, Eigen::RowMajor>& boxes,
-                               int i, int j) {
+static inline float ComputeIOU(
+    const Eigen::Tensor<float, 2, Eigen::RowMajor>& boxes, int i, int j) {
   const float xmin_i = std::min<float>(boxes(i, 0), boxes(i, 2));
   const float ymin_i = std::min<float>(boxes(i, 1), boxes(i, 3));
   const float xmax_i = std::max<float>(boxes(i, 0), boxes(i, 2));
@@ -96,11 +94,8 @@ static inline float ComputeIOU(const Eigen::Tensor<float, 2, Eigen::RowMajor>& b
 static inline void nms(
     const Eigen::Tensor<float, 2, Eigen::RowMajor>& boxes_data,  // [N, 4]
     const Eigen::Tensor<float, 2, Eigen::RowMajor>& scores,      // [N, 1]
-    const float iou_threshold,
-    const float min_score_threshold,
-    const int max_output_size,
-    std::vector<int>& selected_indices)
-{
+    const float iou_threshold, const float min_score_threshold,
+    const int max_output_size, std::vector<int>& selected_indices) {
   selected_indices.clear();
 
   int num_boxes = boxes_data.dimension(0);
@@ -123,7 +118,8 @@ static inline void nms(
   int num_active = active.size();
 
   for (int i = 0; i < num_boxes; ++i) {
-    if (num_active == 0 || selected_indices.size() >= (size_t)output_size) break;
+    if (num_active == 0 || selected_indices.size() >= (size_t)output_size)
+      break;
     if (active[i]) {
       selected_indices.push_back(sorted_indices[i]);
     } else {
@@ -131,7 +127,8 @@ static inline void nms(
     }
     for (int j = i + 1; j < num_boxes; ++j) {
       if (active[j]) {
-        float iou = ComputeIOU(boxes_data, sorted_indices[i], sorted_indices[j]);
+        float iou =
+            ComputeIOU(boxes_data, sorted_indices[i], sorted_indices[j]);
         if (iou > iou_threshold) {
           active[j] = false;
           num_active--;
@@ -140,10 +137,9 @@ static inline void nms(
     }
   }
 }
-} // namespace
+}  // namespace
 
-namespace rcnn
-{
+namespace rcnn {
 
 tensorflow::Status clip_boxes(Tensor* boxes, const TensorShape im_shape) {
   // sanity
@@ -151,7 +147,8 @@ tensorflow::Status clip_boxes(Tensor* boxes, const TensorShape im_shape) {
     tensorflow::errors::Internal("incorrect input shapes");
   }
   if (boxes->dim_size(1) % 4 != 0) {
-    tensorflow::errors::Internal("incorrect shape, expected: [N,M] where M % 4 == 0");
+    tensorflow::errors::Internal(
+        "incorrect shape, expected: [N,M] where M % 4 == 0");
   }
 
   float max_h = (float)im_shape.dim_size(0);
@@ -170,10 +167,10 @@ tensorflow::Status clip_boxes(Tensor* boxes, const TensorShape im_shape) {
       float& x2 = box_mat(r, off + 2);
       float& y2 = box_mat(r, off + 3);
 
-      if (x1 < 0) { x1 = 0; }
-      if (y1 < 0) { y1 = 0; }
-      if (x2 > max_w) { x2 = max_w; }
-      if (y2 > max_h) { y2 = max_h; }
+      if (x1 < 0) x1 = 0;
+      if (y1 < 0) y1 = 0;
+      if (x2 > max_w) x2 = max_w;
+      if (y2 > max_h) y2 = max_h;
     }
   }
   return tensorflow::Status::OK();
@@ -193,11 +190,12 @@ static inline tensorflow::Status bbox_transform_inv(const Tensor& rois_blob,
     tensorflow::errors::Internal("bbox's must have shape [K,5]");
   }
   if (deltas.dim_size(1) % 4 != 0) {
-    tensorflow::errors::Internal("incorrect shape, expected: [N,M] where M % 4 == 0");
+    tensorflow::errors::Internal(
+        "incorrect shape, expected: [N,M] where M % 4 == 0");
   }
   // zero rois_blob
   if (rois_blob.dim_size(0) == 0) {
-    Tensor out(deltas.dtype(), TensorShape({ deltas.dim_size(1) }));
+    Tensor out(deltas.dtype(), TensorShape({deltas.dim_size(1)}));
     CHECK_EQ(pred_boxes->CopyFrom(out, out.shape()), true);
     return tensorflow::Status::OK();
   }
@@ -227,10 +225,10 @@ static inline tensorflow::Status bbox_transform_inv(const Tensor& rois_blob,
       float pred_w = std::exp(dw) * w;
       float pred_h = std::exp(dh) * h;
 
-      out_mat(r, off + 0) = pred_ctr_x - 0.5 * pred_w; // x1
-      out_mat(r, off + 1) = pred_ctr_y - 0.5 * pred_h; // y1
-      out_mat(r, off + 2) = pred_ctr_x + 0.5 * pred_w; // x2
-      out_mat(r, off + 3) = pred_ctr_y + 0.5 * pred_h; // y2
+      out_mat(r, off + 0) = pred_ctr_x - 0.5 * pred_w;  // x1
+      out_mat(r, off + 1) = pred_ctr_y - 0.5 * pred_h;  // y1
+      out_mat(r, off + 2) = pred_ctr_x + 0.5 * pred_w;  // x2
+      out_mat(r, off + 3) = pred_ctr_y + 0.5 * pred_h;  // y2
     }
   }
 
@@ -238,31 +236,28 @@ static inline tensorflow::Status bbox_transform_inv(const Tensor& rois_blob,
   return tensorflow::Status::OK();
 }
 
-
-
 tensorflow::Status RunClassification(const Tensor& im_blob,
                                      const Tensor& im_info,
                                      tensorflow::Session* session,
-                                     Tensor* pred_boxes,
-                                     Tensor* scores,
+                                     Tensor* pred_boxes, Tensor* scores,
                                      Tensor* class_labels) {
   // Run the graph with our inputs and outputs.
   std::vector<Tensor> outputs;
   const std::vector<string>* output_names = output_tensor_names();
-  const tensorflow::Status run_status =
-      session->Run({
-        { "data", im_blob },
-        { "im_info", im_info },
-      }, *output_names, {}, &outputs);
+  const tensorflow::Status run_status = session->Run(
+      {
+          {"data", im_blob}, {"im_info", im_info},
+      },
+      *output_names, {}, &outputs);
 
   if (!run_status.ok()) {
     return run_status;
   }
   // check the output shape
   if (outputs.size() != output_names->size()) {
-    return tensorflow::errors::Internal(
-        tensorflow::strings::StrCat("Expected ", output_names->size(),
-                        " output tensor(s).  Got: ", outputs.size()));
+    return tensorflow::errors::Internal(tensorflow::strings::StrCat(
+        "Expected ", output_names->size(), " output tensor(s).  Got: ",
+        outputs.size()));
   }
   // cls_prob
   CHECK_EQ(scores->CopyFrom(outputs[0], outputs[0].shape()), true);
@@ -274,10 +269,8 @@ tensorflow::Status RunClassification(const Tensor& im_blob,
   // apply bounding box regression deltas
   TF_RETURN_IF_ERROR(bbox_transform_inv(rois, box_deltas, pred_boxes));
   // clip bboxes to image dimensions
-  TF_RETURN_IF_ERROR(clip_boxes(pred_boxes, {
-      im_info.flat<float>()(0),
-      im_info.flat<float>()(1)
-    }));
+  TF_RETURN_IF_ERROR(clip_boxes(
+      pred_boxes, {im_info.flat<float>()(0), im_info.flat<float>()(1)}));
   // complete
   return tensorflow::Status::OK();
 }
@@ -312,20 +305,18 @@ tensorflow::Status ProcessDetections(const Tensor* pred_boxes,
       tmp_scores = scores_mat.slice(off, ext);
     }
 
-    nms(tmp_boxes, tmp_scores, 0.3, detection_threshold, 128, 
+    nms(tmp_boxes, tmp_scores, 0.3, detection_threshold, 128,
         sorted_selected_indices);
 
     for (auto idx : sorted_selected_indices) {
-      dets->emplace_back(ObjDetection {
-          std::array<int, 4>{
-            static_cast<int>(tmp_boxes(idx, 0)),
-            static_cast<int>(tmp_boxes(idx, 1)),
-            static_cast<int>(tmp_boxes(idx, 2)),
-            static_cast<int>(tmp_boxes(idx, 3))
-          }, cls, tmp_scores(idx, 0)
-        });
+      dets->emplace_back(
+          ObjDetection{std::array<int, 4>{static_cast<int>(tmp_boxes(idx, 0)),
+                                          static_cast<int>(tmp_boxes(idx, 1)),
+                                          static_cast<int>(tmp_boxes(idx, 2)),
+                                          static_cast<int>(tmp_boxes(idx, 3))},
+                       cls, tmp_scores(idx, 0)});
     }
   }
   return tensorflow::Status::OK();
 }
-} // namespace rcnn
+}  // namespace rcnn

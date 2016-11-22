@@ -45,10 +45,8 @@ namespace {
 // (a directory). The servable_name param simply allows this source to create
 // all AspiredVersions for the target with the same servable_name.
 Status CreateStoragePathSource(
-    const string& base_path,
-    const string& servable_name,
-    std::unique_ptr<Source<StoragePath>>* path_source)
-{
+    const string& base_path, const string& servable_name,
+    std::unique_ptr<Source<StoragePath>>* path_source) {
   FileSystemStoragePathSourceConfig config;
   config.set_servable_name(servable_name);
   config.set_base_path(base_path);
@@ -67,9 +65,8 @@ Status CreateStoragePathSource(
 // 'CreateSingleCaffeModelManagerFromBasePath' method, with the
 // FileSystemStoragePathSource as the Source and the SessionBundleSource as the
 // Target.
-Status CreateSessionBundleSource(
-    const CaffeSourceAdapterConfig& config,
-    std::unique_ptr<CaffeSourceAdapter>* source) {
+Status CreateSessionBundleSource(const CaffeSourceAdapterConfig& config,
+                                 std::unique_ptr<CaffeSourceAdapter>* source) {
   return CaffeSourceAdapter::Create(config, source);
 }
 
@@ -78,8 +75,7 @@ Status CreateSessionBundleSource(
 Status CreateSingleCaffeModelManagerFromBasePath(
     const string& base_path,
     const CaffeSourceAdapterConfig& source_adapter_config,
-    std::unique_ptr<Manager>* const manager)
-{
+    std::unique_ptr<Manager>* const manager) {
   std::unique_ptr<CaffeSourceAdapter> bundle_source;
   TF_RETURN_IF_ERROR(
       CreateSessionBundleSource(source_adapter_config, &bundle_source));
@@ -93,9 +89,8 @@ Status CreateSingleCaffeModelManagerFromBasePath(
     AspiredVersionsManagerBuilder::Options manager_options;
     manager_options.aspired_version_policy.reset(new EagerUnloadPolicy());
 
-    TF_CHECK_OK(
-        AspiredVersionsManagerBuilder::Create(std::move(manager_options),
-                                                        &builder));
+    TF_CHECK_OK(AspiredVersionsManagerBuilder::Create(
+        std::move(manager_options), &builder));
   }
 
   builder->AddSourceChain(std::move(path_source), std::move(bundle_source));
@@ -105,9 +100,7 @@ Status CreateSingleCaffeModelManagerFromBasePath(
 }
 
 Status CreateSingleCaffeModelManagerFromBasePath(
-    const string& base_path,
-    std::unique_ptr<Manager>* const manager)
-{
+    const string& base_path, std::unique_ptr<Manager>* const manager) {
   CaffeSourceAdapterConfig source_adapter_config;
   return CreateSingleCaffeModelManagerFromBasePath(
       base_path, source_adapter_config, manager);

@@ -19,5 +19,5 @@ tensorflow::Status EnsurePyCaffeSystemPath(const string& path);
 // returns an error if python has an error currently set
 tensorflow::Status PythonStatus();
 
-} // namespace serving
-} // namespaces tensorflow
+}  // namespace serving
+}  // namespaces tensorflow

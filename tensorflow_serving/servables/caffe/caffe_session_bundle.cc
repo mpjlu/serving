@@ -29,8 +29,7 @@ namespace {
 
 // Create a network using the given options and load the graph.
 Status CreateSessionFromGraphDef(
-    const CaffeSessionOptions& options,
-    const CaffeMetaGraphDef& graph,
+    const CaffeSessionOptions& options, const CaffeMetaGraphDef& graph,
     std::unique_ptr<CaffeServingSession>* session) {
   session->reset(new CaffeServingSession(graph, options));
   return Status::OK();
@@ -59,8 +58,8 @@ Status GetClassLabelsFromExport(const StringPiece export_dir,
       }
     }
     proto->set_dtype(DT_STRING);
-    TensorShape({ 1, proto->string_val().size() }).AsProto(
-      proto->mutable_tensor_shape());
+    TensorShape({1, proto->string_val().size()})
+        .AsProto(proto->mutable_tensor_shape());
   }
   return Status::OK();
 }
@@ -72,18 +71,14 @@ Status GetGraphDefFromExport(const StringPiece export_dir,
 
   if (!Env::Default()->FileExists(model_def_path)) {
     return errors::NotFound(
-        strings::StrCat("Caffe model does not exist: ",
+        strings::StrCat("Caffe model does not exist: ", model_def_path));
+  } else if (!ReadProtoFromTextFile(model_def_path, model_def)) {
+    return errors::InvalidArgument(strings::StrCat(
+        "Caffe network failed to load from file: ", model_def_path));
+  } else if (!UpgradeNetAsNeeded(model_def_path, model_def)) {
+    return errors::InvalidArgument(
+        strings::StrCat("Network upgrade failed from while loading from file: ",
                         model_def_path));
-  }
-  else if (!ReadProtoFromTextFile(model_def_path, model_def)) {
-    return errors::InvalidArgument(
-      strings::StrCat("Caffe network failed to load from file: ",
-                      model_def_path));
-  }
-  else if (!UpgradeNetAsNeeded(model_def_path, model_def)) {
-    return errors::InvalidArgument(
-      strings::StrCat("Network upgrade failed from while loading from file: ",
-                      model_def_path));
   }
   model_def->mutable_state()->set_phase(caffe::TEST);
   return Status::OK();
@@ -101,18 +96,15 @@ Status RunRestoreOp(const StringPiece export_dir,
     return session->CopyTrainedLayersFromBinaryProto(weights_path);
   } else {
     return errors::NotFound(
-        strings::StrCat("Caffe weights file does not exist: ",
-                        weights_path));
+        strings::StrCat("Caffe weights file does not exist: ", weights_path));
   }
 }
 
-} // namespace
+}  // namespace
 
-tensorflow::Status LoadSessionBundleFromPath(
-    const CaffeSessionOptions& options,
-    const StringPiece export_dir,
-    CaffeSessionBundle* bundle)
-{
+tensorflow::Status LoadSessionBundleFromPath(const CaffeSessionOptions& options,
+                                             const StringPiece export_dir,
+                                             CaffeSessionBundle* bundle) {
   LOG(INFO) << "Attempting to load a SessionBundle from: " << export_dir;
 
   // load model prototxt
@@ -124,18 +116,16 @@ tensorflow::Status LoadSessionBundleFromPath(
       GetClassLabelsFromExport(export_dir, &(bundle->meta_graph_def.classes)));
 
   // resolve network inputs and outputs
-  TF_RETURN_IF_ERROR(
-      ::caffe::ResolveNetInsOuts(bundle->meta_graph_def.model_def,
-                                 bundle->meta_graph_def.resolved_inputs,
-                                 bundle->meta_graph_def.resolved_outputs));
+  TF_RETURN_IF_ERROR(::caffe::ResolveNetInsOuts(
+      bundle->meta_graph_def.model_def, bundle->meta_graph_def.resolved_inputs,
+      bundle->meta_graph_def.resolved_outputs));
   // initialize network
   std::unique_ptr<CaffeServingSession> caffe_session;
-  TF_RETURN_IF_ERROR(
-      CreateSessionFromGraphDef(options, bundle->meta_graph_def, &caffe_session));
+  TF_RETURN_IF_ERROR(CreateSessionFromGraphDef(options, bundle->meta_graph_def,
+                                               &caffe_session));
 
   // load weights
-  TF_RETURN_IF_ERROR(
-      RunRestoreOp(export_dir, caffe_session.get()));
+  TF_RETURN_IF_ERROR(RunRestoreOp(export_dir, caffe_session.get()));
 
   bundle->session.reset(caffe_session.release());
 

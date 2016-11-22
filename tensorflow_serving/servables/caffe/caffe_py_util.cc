@@ -3,9 +3,9 @@
 #include "tensorflow/core/lib/strings/strcat.h"
 
 #ifdef WITH_PYTHON_LAYER
-#  include "python_prelude.h"
-   // embedded caffe python module initialization function
-   extern "C" void init_caffe();
+#include "python_prelude.h"
+// embedded caffe python module initialization function
+extern "C" void init_caffe();
 #endif
 
 #include "tensorflow_serving/servables/caffe/caffe_py_util.h"
@@ -24,9 +24,8 @@ bool IsPyCaffeAvailable() {
 tensorflow::Status EnsurePyCaffe() {
   if (!IsPyCaffeAvailable()) {
     return tensorflow::errors::Internal(
-      "Python unavilable in this build configuration");
-  }
-  else {
+        "Python unavilable in this build configuration");
+  } else {
     return Status::OK();
   }
 }
@@ -36,10 +35,9 @@ tensorflow::Status EnsurePyCaffeSystemPath(const string& path) {
   TF_RETURN_IF_ERROR(EnsurePyCaffeInitialized());
 
 #ifdef WITH_PYTHON_LAYER
-  auto statement = strings::StrCat(
-      "import sys\n",
-      "if not '", path, "' in sys.path: sys.path.insert(0, '", path, "')\n"
-      );
+  auto statement =
+      strings::StrCat("import sys\n", "if not '", path,
+                      "' in sys.path: sys.path.insert(0, '", path, "')\n");
 
   PyRun_SimpleString(statement.c_str());
 #endif
@@ -56,10 +54,11 @@ tensorflow::Status EnsurePyCaffeInitialized() {
     LOG(INFO) << "Initializing Python:\n" << Py_GetVersion();
     // append the pythohn internal modules with py
     // the default module search path
-    string path{ Py_GetPath() };
+    string path{Py_GetPath()};
     // make the caffe module accessible as a builtin
     if (PyImport_AppendInittab("_caffe", &init_caffe) == -1) {
-      return tensorflow::errors::Internal("Failed to add PyCaffe builtin module");
+      return tensorflow::errors::Internal(
+          "Failed to add PyCaffe builtin module");
     }
     // causes a fatal error if initilization fails :(
     Py_Initialize();
@@ -82,13 +81,13 @@ tensorflow::Status PythonStatus() {
   TF_RETURN_IF_ERROR(EnsurePyCaffe());
 #ifdef WITH_PYTHON_LAYER
   if (PyErr_Occurred() != nullptr) {
-      // print error and clear error indicator
-      PyErr_PrintEx(0);
-      return tensorflow::errors::Internal("Python error occured.");
+    // print error and clear error indicator
+    PyErr_PrintEx(0);
+    return tensorflow::errors::Internal("Python error occured.");
   }
 #endif
   return Status::OK();
 }
 
-} // namespace serving
-} // namespaces tensorflow
+}  // namespace serving
+}  // namespaces tensorflow

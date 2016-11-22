@@ -18,7 +18,8 @@
 
 namespace caffe {
 // forward decl caffe::Net
-template<class T> class Net;
+template <class T>
+class Net;
 
 // Caffe doesn't seem to provide an easy way to determine
 // the network inputs/outputs without initializing one;
@@ -26,7 +27,7 @@ template<class T> class Net;
 ::tensorflow::Status ResolveNetInsOuts(const caffe::NetParameter& param,
                                        std::vector<std::string>& in_blobs,
                                        std::vector<std::string>& out_blobs);
-} // namespace caffe
+}  // namespace caffe
 
 namespace tensorflow {
 namespace serving {
@@ -62,7 +63,6 @@ const char kClassLabelTensorName[] = "__labels__";
 // Encapsulates a caffe network
 class CaffeServingSession : public ServingSession {
  public:
-
   CaffeServingSession(const CaffeMetaGraphDef& graph,
                       const CaffeSessionOptions& opts);
 
