@@ -126,7 +126,7 @@ genrule(
         cp $$openblas_incl/cblas.h $$outdir/include
         
         # copy config header (not always present)
-        if [ -f '$$openblas_incl/openblas_config.h' ]; then
+        if [ -f "$$openblas_incl/openblas_config.h" ]; then
             cp $$openblas_incl/openblas_config.h $$outdir/include
         else
             touch $$outdir/include/openblas_config.h
