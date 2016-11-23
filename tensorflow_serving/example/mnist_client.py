@@ -128,7 +128,7 @@ def _create_rpc_callback(label, result_counter, reqid):
     exception = result_future.exception()
     if exception:
       result_counter.inc_rpc_error(reqid)
-      print exception
+      print(exception)
     else:
       sys.stdout.write('.')
       sys.stdout.flush()
@@ -176,10 +176,10 @@ def do_inference(hostport, work_dir, concurrency, num_tests):
 
 def main(_):
   if FLAGS.num_tests > 10000:
-    print 'num_tests should not be greater than 10k'
+    print('num_tests should not be greater than 10k')
     return
   if not FLAGS.server:
-    print 'please specify server host:port'
+    print('please specify server host:port')
     return
   stats = do_inference(FLAGS.server, FLAGS.work_dir,
                        FLAGS.concurrency, FLAGS.num_tests)

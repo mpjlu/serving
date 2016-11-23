@@ -24,10 +24,6 @@ namespace tensorflow {
 namespace serving {
 namespace test_util {
 
-std::vector<ServableId> ServerCoreTestAccess::ListAvailableServableIds() const {
-  return core_->ListAvailableServableIds();
-}
-
 ModelServerConfig ServerCoreTest::GetTestModelServerConfig() {
   ModelServerConfig config;
   auto model = config.mutable_model_config_list()->add_config();
@@ -35,14 +31,6 @@ ModelServerConfig ServerCoreTest::GetTestModelServerConfig() {
   model->set_base_path(test_util::TestSrcDirPath(
       "/servables/tensorflow/testdata/half_plus_two"));
   model->set_model_platform(kTensorFlowModelPlatform);
-  return config;
-}
-
-ServerCoreConfig ServerCoreTest::GetTestServerCoreConfig() {
-  ServerCoreConfig config;
-  config.file_system_poll_wait_seconds = 0;
-  config.aspired_version_policy =
-      std::unique_ptr<AspiredVersionPolicy>(new EagerLoadPolicy);
   return config;
 }
 
@@ -56,19 +44,27 @@ Status ServerCoreTest::CreateServerCore(
     const ModelServerConfig& config,
     const ServerCore::SourceAdapterCreator& source_adapter_creator,
     std::unique_ptr<ServerCore>* server_core) {
-  return ServerCore::Create(
-      config, source_adapter_creator,  // ServerCore::SourceAdapterCreator
-      [](EventBus<ServableState>* event_bus,
-         std::unique_ptr<ServableStateMonitor>* monitor) -> Status {
-        monitor->reset(new ServableStateMonitor(event_bus));
-        return Status::OK();
-      },  // ServerCore::ServableStateMonitor
-      [](const ::google::protobuf::Any& any, EventBus<ServableState>* event_bus,
-         UniquePtrWithDeps<AspiredVersionsManager>* manager) -> Status {
-        return Status::OK();
-      },  // ServerCore::CustomModelConfigLoader
-      GetTestServerCoreConfig(),
-      server_core);
+  // For ServerCore Options, we leave servable_state_monitor_creator unspecified
+  // so the default servable_state_monitor_creator will be used.
+  ServerCore::Options options;
+  options.model_server_config = config;
+  options.source_adapter_creator = source_adapter_creator;
+  options.custom_model_config_loader = [](
+      const ::google::protobuf::Any& any, EventBus<ServableState>* event_bus,
+      UniquePtrWithDeps<AspiredVersionsManager>* manager) -> Status {
+    return Status::OK();
+  };
+  return CreateServerCore(std::move(options), server_core);
+}
+
+Status ServerCoreTest::CreateServerCore(
+    ServerCore::Options options, std::unique_ptr<ServerCore>* server_core) {
+  options.file_system_poll_wait_seconds = 0;
+  if (options.aspired_version_policy == nullptr) {
+    options.aspired_version_policy =
+        std::unique_ptr<AspiredVersionPolicy>(new EagerLoadPolicy);
+  }
+  return ServerCore::Create(std::move(options), server_core);
 }
 
 }  // namespace test_util

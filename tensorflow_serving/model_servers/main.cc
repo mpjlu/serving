@@ -62,19 +62,18 @@ limitations under the License.
 #include "tensorflow_serving/apis/prediction_service.pb.h"
 #include "tensorflow_serving/config/model_server_config.pb.h"
 #include "tensorflow_serving/core/eager_load_policy.h"
-#include "tensorflow_serving/core/servable_state_monitor.h"
 #include "tensorflow_serving/model_servers/model_platform_types.h"
 #include "tensorflow_serving/model_servers/server_core.h"
 
 #if USE_TENSORFLOW
- #include "tensorflow/core/platform/init_main.h"
- #include "tensorflow_serving/servables/tensorflow/predict_impl.h"
- #include "tensorflow_serving/servables/tensorflow/session_bundle_source_adapter.h"
+#include "tensorflow/core/platform/init_main.h"
+#include "tensorflow_serving/servables/tensorflow/predict_impl.h"
+#include "tensorflow_serving/servables/tensorflow/session_bundle_source_adapter.h"
 #endif
 
 #if USE_CAFFE
- #include "tensorflow_serving/servables/caffe/predict_impl.h"
- #include "tensorflow_serving/servables/caffe/caffe_source_adapter.h"
+#include "tensorflow_serving/servables/caffe/predict_impl.h"
+#include "tensorflow_serving/servables/caffe/caffe_source_adapter.h"
 #endif
 
 using tensorflow::serving::AspiredVersionsManager;
@@ -82,12 +81,13 @@ using tensorflow::serving::AspiredVersionPolicy;
 using tensorflow::serving::BatchingParameters;
 using tensorflow::serving::EagerLoadPolicy;
 using tensorflow::serving::EventBus;
+using tensorflow::serving::FileSystemStoragePathSourceConfig;
+using tensorflow::serving::FileSystemStoragePathSourceConfig_VersionPolicy;
+using tensorflow::serving::FileSystemStoragePathSourceConfig_VersionPolicy_Name;
 using tensorflow::serving::Loader;
 using tensorflow::serving::ModelServerConfig;
 using tensorflow::serving::ServableState;
-using tensorflow::serving::ServableStateMonitor;
 using tensorflow::serving::ServerCore;
-using tensorflow::serving::ServerCoreConfig;
 using tensorflow::serving::Target;
 using tensorflow::serving::UniquePtrWithDeps;
 using tensorflow::string;
@@ -107,7 +107,7 @@ namespace {
 struct TensorFlow {};
 struct Caffe {};
 
-template<typename>
+template <typename>
 struct ServableTraits {
   static const char* name() { return ""; }
   static constexpr bool available = false;
@@ -121,51 +121,77 @@ struct ServableTraits<TensorFlow> {
   static constexpr bool available = true;
 
   using SourceAdapterConfig = tensorflow::serving::SessionBundleSourceAdapterConfig;
-  using SourceAdapter       = tensorflow::serving::SessionBundleSourceAdapter;
-  using PredictImpl         = tensorflow::serving::TensorflowPredictImpl;
+  using PredictImpl = tensorflow::serving::TensorflowPredictImpl;
 
   static void GlobalInit(int argc, char** argv) {
     tensorflow::port::InitMain(argv[0], &argc, &argv);
   }
-};
-#endif
 
-#if USE_CAFFE
-template <>
-struct ServableTraits<Caffe> {
-  static const char* name() { return kCaffeModelPlatform; }
-  static constexpr bool available = true;
+  static tensorflow::Status ConfigureSourceAdapter(
+      bool enable_batching, SourceAdapterConfig* config) {
+    if (enable_batching) {
+      BatchingParameters* batching_parameters =
+          config->mutable_config()->mutable_batching_parameters();
+      batching_parameters->mutable_thread_pool_name()->set_value(
+          "model_server_batch_threads");
+    }
+    return tensorflow::Status::OK();
+  }
 
-  using SourceAdapterConfig = tensorflow::serving::CaffeSourceAdapterConfig;
-  using SourceAdapter       = tensorflow::serving::CaffeSourceAdapter;
-  using PredictImpl         = tensorflow::serving::CaffePredictImpl;
-
-  static void GlobalInit(int argc, char** argv) {
-    tensorflow::serving::CaffeGlobalInit(&argc, &argv);
+  static tensorflow::Status CreateSourceAdapter(
+      const SourceAdapterConfig& config,
+      std::unique_ptr<ServerCore::ModelServerSourceAdapter>* adapter) {
+    using tensorflow::serving::SessionBundleSourceAdapter;
+    std::unique_ptr<SessionBundleSourceAdapter> typed_adapter;
+    const auto status =
+        SessionBundleSourceAdapter::Create(config, &typed_adapter);
+    if (status.ok()) {
+      *adapter = std::move(typed_adapter);
+    }
+    return status;
   }
 };
 #endif
 
-template<typename S>
-tensorflow::Status CreateSourceAdapter(
-    const typename ServableTraits<S>::SourceAdapterConfig& config,
-    const string& model_platform,
-    std::unique_ptr<ServerCore::ModelServerSourceAdapter>* adapter) {
-  using T = ServableTraits<S>;
-  CHECK(model_platform == T::name())  // Crash ok
-      << "ModelServer supports only " << T::name() << " model.";
-  std::unique_ptr<typename T::SourceAdapter> typed_adapter;
-  TF_RETURN_IF_ERROR(T::SourceAdapter::Create(config, &typed_adapter));
-  *adapter = std::move(typed_adapter);
-  return tensorflow::Status::OK();
-}
+template <>
+struct ServableTraits<Caffe> {
+  static const char* name() { return kCaffeModelPlatform; }
 
-tensorflow::Status CreateServableStateMonitor(
-    EventBus<ServableState>* event_bus,
-    std::unique_ptr<ServableStateMonitor>* monitor) {
-  monitor->reset(new ServableStateMonitor(event_bus));
-  return tensorflow::Status::OK();
-}
+#if USE_CAFFE
+  static constexpr bool available = true;
+
+  using SourceAdapterConfig = tensorflow::serving::CaffeSourceAdapterConfig;
+  using PredictImpl = tensorflow::serving::CaffePredictImpl;
+
+  static void GlobalInit(int argc, char** argv) {
+    tensorflow::serving::CaffeGlobalInit(&argc, &argv);
+  }
+
+  static tensorflow::Status ConfigureSourceAdapter(
+      bool enable_batching, SourceAdapterConfig* config) {
+    if (enable_batching) {
+      BatchingParameters* batching_parameters =
+          config->mutable_config()->mutable_batching_parameters();
+      batching_parameters->mutable_thread_pool_name()->set_value(
+          "model_server_batch_threads");
+    }
+    return tensorflow::Status::OK();
+  }
+
+  static tensorflow::Status CreateSourceAdapter(
+      const SourceAdapterConfig& config,
+      std::unique_ptr<ServerCore::ModelServerSourceAdapter>* adapter) {
+    using tensorflow::serving::CaffeSourceAdapter;
+
+    std::unique_ptr<CaffeSourceAdapter> typed_adapter;
+    const auto status = CaffeSourceAdapter::Create(config, &typed_adapter);
+    if (status.ok()) {
+      *adapter = std::move(typed_adapter);
+    }
+    return status;
+  }
+};
+#endif
 
 tensorflow::Status LoadCustomModelConfig(
     const ::google::protobuf::Any& any,
@@ -175,19 +201,23 @@ tensorflow::Status LoadCustomModelConfig(
       << "ModelServer does not yet support custom model config.";
 }
 
-template<typename S>
-ModelServerConfig BuildSingleModelConfig(const string& model_name,
-                                         const string& model_base_path) {
-  using T = ServableTraits<S>;
+ModelServerConfig BuildSingleModelConfig(
+    const string& model_platform, const string& model_name,
+    const string& model_base_path,
+    const FileSystemStoragePathSourceConfig_VersionPolicy&
+        model_version_policy) {
   ModelServerConfig config;
-  LOG(INFO) << "Building single " << T::name() << " model file config: "
-            << "\n  model_name: " << model_name
-            << "\n  model_base_path: " << model_base_path;
+  LOG(INFO) << "Building single " << model_platform << " model file config: "
+            << " model_name: " << model_name
+            << " model_base_path: " << model_base_path
+            << " model_version_policy: " << model_version_policy;
   tensorflow::serving::ModelConfig* single_model =
       config.mutable_model_config_list()->add_config();
   single_model->set_name(model_name);
   single_model->set_base_path(model_base_path);
-  single_model->set_model_platform(T::name());
+  single_model->set_model_platform(model_platform);
+  single_model->set_version_policy(model_version_policy);
+
   return config;
 }
 
@@ -195,7 +225,6 @@ grpc::Status ToGRPCStatus(const tensorflow::Status& status) {
   const int kErrorMessageLimit = 1024;
   string error_message;
   if (status.error_message().length() > kErrorMessageLimit) {
-    LOG(ERROR) << "Truncating error: " << status.error_message();
     error_message =
         status.error_message().substr(0, kErrorMessageLimit) + "...TRUNCATED";
   } else {
@@ -205,98 +234,110 @@ grpc::Status ToGRPCStatus(const tensorflow::Status& status) {
                       error_message);
 }
 
-template<typename S>
+template <typename S>
 class PredictionServiceImpl final : public PredictionService::Service {
  public:
-
   explicit PredictionServiceImpl(std::unique_ptr<ServerCore> core)
       : core_(std::move(core)) {}
 
   grpc::Status Predict(ServerContext* context, const PredictRequest* request,
                        PredictResponse* response) override {
-    return ToGRPCStatus(ServableTraits<S>::PredictImpl::Predict(
-        core_.get(), *request, response));
+    const grpc::Status status =
+        ToGRPCStatus(ServableTraits<S>::PredictImpl::Predict(
+            core_.get(), *request, response));
+    if (!status.ok()) {
+      VLOG(1) << "Predict failed: " << status.error_message();
+    }
+    return status;
   }
 
  private:
   std::unique_ptr<ServerCore> core_;
 };
 
-template<typename S>
-void RunServer(int port, std::unique_ptr<ServerCore> core) {
+void RunServer(int port, PredictionService::Service* service) {
   // "0.0.0.0" is the way to listen on localhost in gRPC.
   const string server_address = "0.0.0.0:" + std::to_string(port);
-  PredictionServiceImpl<S> service(std::move(core));
   ServerBuilder builder;
   std::shared_ptr<grpc::ServerCredentials> creds = InsecureServerCredentials();
   builder.AddListeningPort(server_address, creds);
-  builder.RegisterService(&service);
+  builder.RegisterService(service);
   std::unique_ptr<Server> server(builder.BuildAndStart());
   LOG(INFO) << "Running ModelServer at " << server_address << " ...";
   server->Wait();
 }
 
-template<
-  typename S,
-  typename std::enable_if< ServableTraits<S>::available, int >::type = 0>
-int BuildAndRun(tensorflow::int32 port,
-                bool enable_batching,
-                tensorflow::string model_name,
-                tensorflow::string model_base_path) {
+template <typename S,
+          typename std::enable_if<ServableTraits<S>::available, int>::type = 0>
+int BuildAndRun(tensorflow::int32 port, bool enable_batching,
+                ServerCore::Options& options) {
   using T = ServableTraits<S>;
-  LOG(INFO) << "Using model platform '" << T::name() << "'";
-  ModelServerConfig config =
-      BuildSingleModelConfig<S>(model_name, model_base_path);
 
   typename T::SourceAdapterConfig source_adapter_config;
-  // Batching config
-  if (enable_batching) {
-    BatchingParameters* batching_parameters =
-        source_adapter_config.mutable_config()->mutable_batching_parameters();
-    batching_parameters->mutable_thread_pool_name()->set_value(
-        "model_server_batch_threads");
-  }
+  TF_CHECK_OK(T::ConfigureSourceAdapter(enable_batching, &source_adapter_config));
 
-  ServerCoreConfig core_config;
-  core_config.aspired_version_policy =
-      std::unique_ptr<AspiredVersionPolicy>(new EagerLoadPolicy);
+  options.source_adapter_creator = [source_adapter_config](
+      const string& model_platform,
+      std::unique_ptr<ServerCore::ModelServerSourceAdapter>* adapter) {
+    CHECK_EQ(model_platform, T::name()) << "Unexpected model platform: "
+                                        << model_platform;
+    const tensorflow::Status status =
+        T::CreateSourceAdapter(source_adapter_config, adapter);
+    if (!status.ok()) {
+      VLOG(1) << "Error creating source adapter: " << status.error_message();
+    }
+    return status;
+  };
 
   std::unique_ptr<ServerCore> core;
-  TF_CHECK_OK(ServerCore::Create(
-      config, std::bind(CreateSourceAdapter<S>, source_adapter_config,
-                        std::placeholders::_1, std::placeholders::_2),
-      &CreateServableStateMonitor, &LoadCustomModelConfig,
-      std::move(core_config), &core));
-  RunServer<S>(port, std::move(core));
+  TF_CHECK_OK(ServerCore::Create(std::move(options), &core));
+
+  PredictionServiceImpl<S> service(std::move(core));
+  RunServer(port, &service);
+
   return 0;
 }
 
-template<
-  typename S,
-  typename std::enable_if< !ServableTraits<S>::available, int >::type = 0>
-int BuildAndRun(
-    tensorflow::int32, bool, tensorflow::string, tensorflow::string) {
+template <typename S,
+          typename std::enable_if<!ServableTraits<S>::available, int>::type = 0>
+int BuildAndRun(tensorflow::int32, bool, ServerCore::Options&) {
   std::cout << "Servable type unavailable. Did you compile it?" << std::endl;
   return -1;
 }
 
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv) {
   tensorflow::int32 port = 8500;
   bool enable_batching = false;
   tensorflow::string model_name = "default";
+  tensorflow::int32 file_system_poll_wait_seconds = 1;
   tensorflow::string servable = ServableTraits<TensorFlow>::name();
   tensorflow::string model_base_path;
+  tensorflow::string model_version_policy =
+      FileSystemStoragePathSourceConfig_VersionPolicy_Name(
+          FileSystemStoragePathSourceConfig::LATEST_VERSION);
 
   std::vector<tensorflow::Flag> flag_list = {
       tensorflow::Flag("port", &port, "port to listen on"),
       tensorflow::Flag("enable_batching", &enable_batching, "enable batching"),
       tensorflow::Flag("model_name", &model_name, "name of model"),
+      tensorflow::Flag(
+          "model_version_policy", &model_version_policy,
+          "The version policy which determines "
+          "the number of model versions to be served at the same time. "
+          "The default value is LATEST_VERSION, which will serve only the "
+          "latest version. "
+          "See file_system_storage_path_source.proto for the list of "
+          "possible VersionPolicy."),
+      tensorflow::Flag("file_system_poll_wait_seconds",
+                       &file_system_poll_wait_seconds,
+                       "interval in seconds between each poll of the file "
+                       "system for new model version"),
       tensorflow::Flag("servable", &servable, "platform to use"),
       tensorflow::Flag("model_base_path", &model_base_path,
                        "path to export (required)")};
-  
+
   string usage = tensorflow::Flags::Usage(argv[0], flag_list);
   const bool parse_result = tensorflow::Flags::Parse(&argc, argv, flag_list);
   if (!parse_result || model_base_path.empty()) {
@@ -304,16 +345,35 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  FileSystemStoragePathSourceConfig_VersionPolicy parsed_version_policy;
+  bool valid_policy = FileSystemStoragePathSourceConfig_VersionPolicy_Parse(
+      model_version_policy, &parsed_version_policy);
+  CHECK(valid_policy) << "Invalid model_version_policy input argument: "
+                      << model_version_policy << "\n"
+                      << usage;
+
+  // For ServerCore Options, we leave servable_state_monitor_creator unspecified
+  // so the default servable_state_monitor_creator will be used.
+  ServerCore::Options options;
+
+  options.custom_model_config_loader = &LoadCustomModelConfig;
+
+  options.aspired_version_policy =
+      std::unique_ptr<AspiredVersionPolicy>(new EagerLoadPolicy);
+
+  options.model_server_config = BuildSingleModelConfig(
+      servable, model_name, model_base_path, parsed_version_policy);
+
+  options.file_system_poll_wait_seconds = file_system_poll_wait_seconds;
+
   if (servable == ServableTraits<Caffe>::name()) {
     ServableTraits<Caffe>::GlobalInit(argc, argv);
-    return BuildAndRun<Caffe>(port, enable_batching, model_name, model_base_path);
-  }
-  else if (servable == ServableTraits<TensorFlow>::name()) {
+    return BuildAndRun<Caffe>(port, enable_batching, options);
+  } else if (servable == ServableTraits<TensorFlow>::name()) {
     ServableTraits<TensorFlow>::GlobalInit(argc, argv);
-    return BuildAndRun<TensorFlow>(port, enable_batching, model_name, model_base_path);
-  }
-  else {
-    std::cout << "Invalid platform name." << std::endl;
+    return BuildAndRun<TensorFlow>(port, enable_batching, options);
+  } else {
+    std::cout << "Invalid platform name '" << servable << "'" << std::endl;
     return -1;
   }
 }

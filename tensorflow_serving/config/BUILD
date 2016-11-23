@@ -2,10 +2,7 @@
 
 package(
     default_visibility = ["//visibility:public"],
-    features = [
-        "-layering_check",
-        "-parse_headers",
-    ],
+    features = ["-layering_check"],
 )
 
 licenses(["notice"])  # Apache 2.0
@@ -31,5 +28,6 @@ serving_proto_library(
     cc_api_version = 2,
     deps = [
         "@protobuf//:cc_wkt_protos",
+        "//tensorflow_serving/sources/storage_path:file_system_storage_path_source_proto",
     ],
 )
