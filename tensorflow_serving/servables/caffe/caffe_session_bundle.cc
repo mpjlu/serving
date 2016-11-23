@@ -44,7 +44,7 @@ Status GetClassLabelsFromExport(const StringPiece export_dir,
   proto->set_dtype(DT_INVALID);
   TensorShape({}).AsProto(proto->mutable_tensor_shape());
 
-  if (Env::Default()->FileExists(labels_path)) {
+  if (Env::Default()->FileExists(labels_path).ok()) {
     /* Load labels. */
     std::unique_ptr<RandomAccessFile> file;
     TF_RETURN_IF_ERROR(Env::Default()->NewRandomAccessFile(labels_path, &file));
@@ -69,7 +69,7 @@ Status GetGraphDefFromExport(const StringPiece export_dir,
   const string model_def_path =
       tensorflow::io::JoinPath(export_dir, kGraphDefFilename);
 
-  if (!Env::Default()->FileExists(model_def_path)) {
+  if (!Env::Default()->FileExists(model_def_path).ok()) {
     return errors::NotFound(
         strings::StrCat("Caffe model does not exist: ", model_def_path));
   } else if (!ReadProtoFromTextFile(model_def_path, model_def)) {
@@ -92,7 +92,7 @@ Status RunRestoreOp(const StringPiece export_dir,
                     CaffeServingSession* session) {
   LOG(INFO) << "Running restore op for CaffeSessionBundle";
   string weights_path = GetVariablesFilename(export_dir);
-  if (Env::Default()->FileExists(weights_path)) {
+  if (Env::Default()->FileExists(weights_path).ok()) {
     return session->CopyTrainedLayersFromBinaryProto(weights_path);
   } else {
     return errors::NotFound(

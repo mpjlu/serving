@@ -106,7 +106,7 @@ Status CaffeSessionBundleFactory::Create(
 Status CaffeSessionBundleFactory::EstimateResourceRequirement(
     const string& path, ResourceAllocation* estimate) const {
   const string file_path = io::JoinPath(path, kVariablesFilename);
-  if (!Env::Default()->FileExists(file_path)) {
+  if (!Env::Default()->FileExists(file_path).ok()) {
     return errors::NotFound("Nonexistent export path: ", file_path);
   }
   uint64 file_size;
