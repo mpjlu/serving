@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_PY_CAFFE_UTIL_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_PY_CAFFE_UTIL_H_
 
 #include "tensorflow/core/lib/core/status.h"
 
@@ -21,3 +22,5 @@ tensorflow::Status PythonStatus();
 
 }  // namespace serving
 }  // namespaces tensorflow
+
+#endif  // TENSORFLOW_SERVING_SERVABLES_CAFFE_PY_CAFFE_UTIL_H_

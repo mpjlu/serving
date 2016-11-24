@@ -1,5 +1,7 @@
 /* Copyright 2016 IBM Corp. All Rights Reserved. */
-#pragma once
+
+#ifndef SIMPLE_THREAD_SINK_H_
+#define SIMPLE_THREAD_SINK_H_
 
 #include <queue>
 #include <memory>
@@ -57,3 +59,5 @@ auto SimpleThreadSink::run(F&& f, Args&&... args) ->
   }
   return res.get();
 }
+
+#endif

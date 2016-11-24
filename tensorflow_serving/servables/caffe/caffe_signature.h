@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_SIGNATURE_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_SIGNATURE_H_
 
 #include <string>
 #include <utility>
@@ -39,3 +40,5 @@ Status GetRegressionSignature(const CaffeMetaGraphDef& meta_graph_def,
 
 }  // namespace
 }  // namespace
+
+#endif // TENSORFLOW_SERVING_SERVABLES_CAFFE_SIGNATURE_H_

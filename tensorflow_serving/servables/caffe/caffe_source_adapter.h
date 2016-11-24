@@ -12,7 +12,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_CAFFE_SOURCE_ADAPTER_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_CAFFE_SOURCE_ADAPTER_H_
 
 #include <string>
 #include <unordered_map>
@@ -53,3 +55,5 @@ class CaffeSourceAdapter
 
 }  // namespace serving
 }  // namespace tensorflow
+
+#endif // TENSORFLOW_SERVING_SERVABLES_CAFFE_CAFFE_SOURCE_ADAPTER_H_

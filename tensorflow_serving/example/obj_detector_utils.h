@@ -1,5 +1,7 @@
 /* Copyright IBM Corp. All Rights Reserved. */
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_EXAMPLE_OBJ_DETECTOR_UTILS_H_
+#define TENSORFLOW_SERVING_EXAMPLE_OBJ_DETECTOR_UTILS_H_
 
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_types.h"
@@ -49,3 +51,5 @@ tensorflow::Status ProcessDetections(const tensorflow::Tensor* pred_boxes,
                                      std::vector<ObjDetection>* dets);
 
 }  // namespace rcnn
+
+#endif // TENSORFLOW_SERVING_EXAMPLE_OBJ_DETECTOR_UTILS_H_

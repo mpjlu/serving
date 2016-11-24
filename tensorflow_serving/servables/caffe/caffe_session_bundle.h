@@ -1,5 +1,7 @@
 /* Copyright 2016 IBM Corp. All Rights Reserved. */
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_SESSION_BUNDLE_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_SESSION_BUNDLE_H_
 
 #include <memory>
 
@@ -22,7 +24,7 @@ const char kGraphTxtLabelFilename[] = "classlabels.txt";
 // Currently it just invokes caffe::GlobalInit(..)
 void CaffeGlobalInit(int* pargc, char*** pargv);
 
-// Very roughly equivalent to a TF session bundle
+// Remarks: Very roughly equivalent to a TF session bundle
 struct CaffeSessionBundle {
   std::unique_ptr<tensorflow::Session> session;
   CaffeMetaGraphDef meta_graph_def;
@@ -35,3 +37,5 @@ tensorflow::Status LoadSessionBundleFromPath(
 
 }  // namespace serving
 }  // namespace tensorflow
+
+#endif  // TENSORFLOW_SERVING_SERVABLES_CAFFE_SESSION_BUNDLE_H_

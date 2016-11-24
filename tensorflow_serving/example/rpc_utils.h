@@ -1,5 +1,7 @@
 /* Copyright 2016 IBM Corp. All Rights Reserved. */
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_EXAMPLE_RPC_UTILS_H_
+#define TENSORFLOW_SERVING_EXAMPLE_RPC_UTILS_H_
 
 #include "grpc++/server_context.h"
 #include "grpc++/support/status.h"
@@ -154,3 +156,5 @@ void UnaryRequestHandleBase<Req, Res>::Finish(grpc::Status status) {
   responder_.Finish(response_, status, this);
 }
 }  // namespace rpc_util
+
+#endif // TENSORFLOW_SERVING_EXAMPLE_RPC_UTILS_H_

@@ -1,5 +1,7 @@
 /* Copyright IBM Corp. All Rights Reserved. */
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_SERVING_SESSION_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_SERVING_SESSION_H_
 
 #include <memory>
 #include <string>
@@ -92,3 +94,5 @@ class CaffeServingSession : public ServingSession {
 
 }  // namespace serving
 }  // namespace tensorflow
+
+#endif  // TENSORFLOW_SERVING_SERVABLES_CAFFE_SERVING_SESSION__H_

@@ -18,7 +18,9 @@ limitations under the License.
 //
 // Note: All methods expect Caffe exports conforming to the export format
 // specified at tensorflow_serving/servables/tensorflow/README.md.
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_CAFFE_SIMPLE_SERVERS_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_CAFFE_SIMPLE_SERVERS_H_
 
 #include <memory>
 #include <string>
@@ -60,3 +62,5 @@ Status CreateSingleCaffeModelManagerFromBasePath(
 }  // namespace simple_servers
 }  // namespace serving
 }  // namespace tensorflow
+
+#endif // TENSORFLOW_SERVING_SERVABLES_CAFFE_CAFFE_SIMPLE_SERVERS_H_

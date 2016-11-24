@@ -1,5 +1,7 @@
 // Copyright 2016 IBM Corp. All Rights Reserved.
-#pragma once
+
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_TEST_DATA_MNIST_SAMPLE_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_TEST_DATA_MNIST_SAMPLE_H_
 
 #include <tuple>
 #include <vector>
@@ -43,3 +45,5 @@ inline const std::vector<float> mnist_sample_28x28() {
 
 } // namespace serving
 } // namespace tensorflow
+
+#endif //  TENSORFLOW_SERVING_SERVABLES_CAFFE_TEST_DATA_MNIST_SAMPLE_H_

@@ -13,7 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#pragma once
+#ifndef TENSORFLOW_SERVING_SERVABLES_CAFFE_SESSION_BUNDLE_FACTORY_H_
+#define TENSORFLOW_SERVING_SERVABLES_CAFFE_SESSION_BUNDLE_FACTORY_H_
 
 #include "tensorflow_serving/servables/caffe/caffe_session_bundle.h"
 #include "tensorflow_serving/batching/batching_session.h"
@@ -85,3 +86,5 @@ class CaffeSessionBundleFactory {
 
 }  // namespace serving
 }  // namespace tensorflow
+
+#endif  // TENSORFLOW_SERVING_SERVABLES_CAFFE_SESSION_BUNDLE_FACTORY_H_
