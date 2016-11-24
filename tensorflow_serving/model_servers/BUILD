@@ -30,6 +30,39 @@ cc_library(
     ],
 )
 
+SUPPORTED_TENSORFLOW_OPS = [
+    "@org_tensorflow//tensorflow/contrib:contrib_kernels",
+    "@org_tensorflow//tensorflow/contrib:contrib_ops_op_lib",
+]
+
+cc_library(
+    name = "model_platform_tensorflow",
+    hdrs = ["model_platform_tensorflow.h"],
+    deps = [
+        "@org_tensorflow//tensorflow/core:tensorflow",
+        "//tensorflow_serving/servables/tensorflow:session_bundle_source_adapter",
+        "//tensorflow_serving/servables/tensorflow:predict_impl"
+    ] + SUPPORTED_TENSORFLOW_OPS,
+    defines = ["USE_TENSORFLOW"],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+cc_library(
+    name = "model_platform_caffe",
+    hdrs = ["model_platform_caffe.h"],
+    deps = [
+        "//tensorflow_serving/servables/caffe:predict_impl",
+        "//tensorflow_serving/servables/caffe:caffe_source_adapter",
+        "//tensorflow_serving/servables/caffe:caffe_source_adapter_proto",
+    ],
+    defines = ["USE_CAFFE"],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
 cc_library(
     name = "server_core",
     srcs = ["server_core.cc"],
@@ -80,26 +113,6 @@ cc_test(
     ],
 )
 
-SUPPORTED_TENSORFLOW_OPS = [
-    "@org_tensorflow//tensorflow/contrib:contrib_kernels",
-    "@org_tensorflow//tensorflow/contrib:contrib_ops_op_lib",
-]
-
-TENSORFLOW_DEPS = [
-    "@org_tensorflow//tensorflow/core:tensorflow",
-    "//tensorflow_serving/servables/tensorflow:session_bundle_source_adapter",
-    "//tensorflow_serving/servables/tensorflow:predict_impl",
-]
-
-CAFFE_DEPS = [
-    "//tensorflow_serving/servables/caffe:caffe_session_bundle_config_proto",
-    "//tensorflow_serving/servables/caffe:caffe_session_bundle_factory",
-    "//tensorflow_serving/servables/caffe:caffe_session_bundle",
-    "//tensorflow_serving/servables/caffe:caffe_source_adapter",
-    "//tensorflow_serving/servables/caffe:caffe_signature",
-    "//tensorflow_serving/servables/caffe:predict_impl"
-]
-
 SERVER_DEPS = [
     ":model_platform_types",
     ":server_core",
@@ -117,21 +130,20 @@ cc_binary(
     name = "tensorflow_model_server",
     srcs = ["main.cc"],
     visibility = ["//tensorflow_serving:internal"],
-    defines = [
-        "USE_TENSORFLOW"
-    ],
-    deps = SERVER_DEPS + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS
+    deps = SERVER_DEPS + [
+        ":model_platform_tensorflow"
+    ]
 )
+
 # generic caffe + tensorflow model server
 cc_binary(
     name = "model_server",
     srcs = ["main.cc"],
     visibility = ["//tensorflow_serving:internal"],
-    defines = [
-        "USE_TENSORFLOW",
-        "USE_CAFFE"
-    ],
-    deps = SERVER_DEPS + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS + CAFFE_DEPS
+    deps = SERVER_DEPS + [
+        ":model_platform_tensorflow",
+        ":model_platform_caffe"
+    ]
 )
 
 py_test(
