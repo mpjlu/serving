@@ -11,7 +11,7 @@
 #include <functional>
 #include <future>
 
-// SimpleThreadSink is A single-threaded threadpool. All operations
+// SimpleThreadSink is A threadpool with a single worker. All tasks
 // issued to the sink are guaranteed to run on the same thread.
 //
 // Remarks: 
