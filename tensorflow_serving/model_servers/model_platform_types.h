@@ -22,7 +22,7 @@ struct ModelPlatform {};
 // ModelPlatformTraits should be specialized on a per model-platform basis
 template <typename>
 struct ModelPlatformTraits {
-  static constexpr bool available = false;
+  static constexpr bool defined = false;
   static const char* name() { return "undefined"; }
   static void GlobalInit(int argc, char** argv) {}
 };

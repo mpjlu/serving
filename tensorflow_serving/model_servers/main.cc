@@ -176,7 +176,7 @@ void RunServer(int port, PredictionService::Service* service) {
 }
 
 template <typename S,
-          typename std::enable_if<ModelPlatformTraits<S>::available, int>::type = 0>
+          typename std::enable_if<ModelPlatformTraits<S>::defined, int>::type = 0>
 int BuildAndRun(tensorflow::int32 port, bool enable_batching,
                 ServerCore::Options& options) {
   using T = ModelPlatformTraits<S>;
@@ -209,7 +209,7 @@ int BuildAndRun(tensorflow::int32 port, bool enable_batching,
 }
 
 template <typename S,
-          typename std::enable_if<!ModelPlatformTraits<S>::available, int>::type = 0>
+          typename std::enable_if<!ModelPlatformTraits<S>::defined, int>::type = 0>
 int BuildAndRun(tensorflow::int32, bool, ServerCore::Options&) {
   std::cout << "Model platform unavailable. Did you compile it?" << std::endl;
   return -1;

@@ -28,7 +28,7 @@ struct ModelPlatformTraits<Caffe> {
   using PredictImpl = tensorflow::serving::CaffePredictImpl;
 
   static const char* name() { return "caffe"; }
-  static constexpr bool available = true;
+  static constexpr bool defined = true;
 
   static void GlobalInit(int argc, char** argv) {
     tensorflow::serving::CaffeGlobalInit(&argc, &argv);

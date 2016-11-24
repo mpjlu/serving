@@ -25,7 +25,7 @@ limitations under the License.
 template <>
 struct ModelPlatformTraits<TensorFlow> {
   static const char* name() { return kTensorFlowModelPlatform; }
-  static constexpr bool available = true;
+  static constexpr bool defined = true;
 
   using SourceAdapter = tensorflow::serving::SessionBundleSourceAdapter;
   using SourceAdapterConfig = tensorflow::serving::SessionBundleSourceAdapterConfig;
