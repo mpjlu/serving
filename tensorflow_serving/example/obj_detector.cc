@@ -426,9 +426,9 @@ string proc_path() {
 void parse_cmdline(int& argc, char** argv, tensorflow::int32& port,
                    Resolution& resolution, std::string& export_base_path) {
   std::string resolution_str;
-  const bool parse_result = tensorflow::ParseFlags(
-      &argc, argv, {tensorflow::Flag("port", &port),
-                    tensorflow::Flag("resolution", &resolution_str)});
+  const bool parse_result = tensorflow::Flags::Parse(
+      &argc, argv, {tensorflow::Flag("port", &port, "port to listen on"),
+                    tensorflow::Flag("resolution", &resolution_str, "input image resolution")});
 
   if (!parse_result) {
     LOG(FATAL) << "Error parsing command line flags.";

@@ -134,7 +134,7 @@ cc_binary(
     defines = select({
         ":obj_detector_rcnn": ["WITH_RCNN"],
         ":obj_detector_ssd": ["WITH_SSD"],
-        "//conditions:default": [],
+        "//conditions:default": ["WITH_SSD"],
     }),
     deps = [
         "@grpc//:grpc++",
