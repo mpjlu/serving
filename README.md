@@ -88,11 +88,11 @@ The contents of any pretrained model must include `deploy.prototxt` `weights.caf
 > bazel build -c opt //tensorflow_serving/model_servers:model_server
 ```
 
-The `model_server` in this fork has learned a `--servable=<servable name>` option which supports `tensorflow` or `caffe` values. So, to begin serving the Caffe model(s),
+The `model_server` in this fork has learned a `--platform_name=<servable name>` option which supports `tensorflow` or `caffe` values. So, to begin serving the Caffe model(s),
 
 ```
 >  bazel-bin/tensorflow_serving/model_servers/model_server --port=9000 \
-    --model_name=mnist --servable=caffe --model_base_path=/tmp/mnist_export_caffe
+    --model_name=mnist --platform_name=caffe --model_base_path=/tmp/mnist_export_caffe
 ```
 
 *Sample output:*
