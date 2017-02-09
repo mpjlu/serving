@@ -12,7 +12,7 @@ def tf_serving_workspace(workspace_dir):
     path = "tf_models/inception",
   )
 
-  tf_workspace()
+  tf_workspace(path_prefix = "", tf_repo_name = "org_tensorflow")
 
   # ===== gRPC dependencies =====
   native.bind(

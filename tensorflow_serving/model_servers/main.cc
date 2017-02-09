@@ -181,6 +181,8 @@ int BuildAndRun(tensorflow::int32 port, bool enable_batching,
                 ServerCore::Options& options) {
   using T = ModelPlatformTraits<S>;
 
+  LOG(INFO) << "Selected model platform: " << T::name();
+
   typename T::SourceAdapterConfig source_adapter_config;
   TF_CHECK_OK(T::ConfigureSourceAdapter(enable_batching, &source_adapter_config));
 

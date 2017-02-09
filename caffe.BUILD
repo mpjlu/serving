@@ -1,9 +1,6 @@
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "if_cuda")
 load("@caffe_tools//:config.bzl", "if_pycaffe")
-load("@local_config_cuda//cuda:platform.bzl",
-     "cuda_sdk_version",
-     "cudnn_library_path",
-    )
+load("@local_config_cuda//cuda:platform.bzl", "cuda_sdk_version")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -34,7 +31,7 @@ genrule(
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
         "@local_config_cuda//cuda:include/cudnn.h",
-        "@local_config_cuda//cuda:" + cudnn_library_path()
+        "@local_config_cuda//cuda:cudnn"
     ]) + [
         ":protobuf-root",
         ":CMakeLists.txt",
@@ -68,11 +65,11 @@ genrule(
         # sensible.
         if_cuda('''
             cudnn_includes=$(location @local_config_cuda//cuda:include/cudnn.h);
-            cudnn_lib=$(location @local_config_cuda//cuda:%s);
+            cudnn_lib=$(location @local_config_cuda//cuda:cudnn);
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
                               -DUSE_CUDNN:bool=ON
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
-                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''' % cudnn_library_path(),
+                              -DCUDNN_LIBRARY:path=$$srcdir/$$cudnn_lib"; ''',
 
             'extra_cmake_opts="-DCPU_ONLY:bool=ON";') +
 
