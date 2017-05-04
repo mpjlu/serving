@@ -1,6 +1,6 @@
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "if_cuda")
 load("@caffe_tools//:config.bzl", "if_pycaffe")
-load("@local_config_cuda//cuda:platform.bzl", "cuda_sdk_version")
+load("@local_config_cuda//cuda:platform.bzl", "cudnn_sdk_version")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -31,7 +31,7 @@ genrule(
     message = "Building Caffe (this may take a while)",
     srcs = if_cuda([
         "@local_config_cuda//cuda:include/cudnn.h",
-        "@local_config_cuda//cuda:cudnn"
+        "@local_config_cuda//cuda:lib/libcudnn.so." + cudnn_sdk_version()
     ]) + [
         ":protobuf-root",
         ":CMakeLists.txt",
@@ -65,7 +65,7 @@ genrule(
         # sensible.
         if_cuda('''
             cudnn_includes=$(location @local_config_cuda//cuda:include/cudnn.h);
-            cudnn_lib=$(location @local_config_cuda//cuda:cudnn);
+            cudnn_lib=$(location @local_config_cuda//cuda:lib/libcudnn.so.''' + cudnn_sdk_version() + ''');
             extra_cmake_opts="-DCPU_ONLY:bool=OFF
                               -DUSE_CUDNN:bool=ON
                               -DCUDNN_INCLUDE:path=$$srcdir/$$(dirname $$cudnn_includes)
@@ -121,7 +121,7 @@ genrule(
 
         cp $$openblas_lib $$outdir/lib/libopenblas.so.0
         cp $$openblas_incl/cblas.h $$outdir/include
-        
+
         # copy config header (not always present)
         if [ -f "$$openblas_incl/openblas_config.h" ]; then
             cp $$openblas_incl/openblas_config.h $$outdir/include
