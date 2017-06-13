@@ -25,7 +25,7 @@ import os
 from six.moves import urllib
 
 VERSION_FORMAT_SPECIFIER = "%08d"
-SOURCE_URL = 'https://ibm.box.com/shared/static/yemc4i8mtvrito2cgoypw4auxxvzatoo.tar'
+SOURCE_URL = 'https://github.com/rayglover-ibm/serving-caffe/raw/pretrained-models/mnist_pretrained_caffe.tar'
 OUT_FILE = 'mnist_pretrained_caffe.tar'
 MODEL_FILES = ['classlabels.txt', 'deploy.prototxt', 'weights.caffemodel']
 
