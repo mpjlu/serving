@@ -24,17 +24,17 @@ First, clone the repository and its submodules:
 
 Caffe has been integrated in to TFS build, and as such you should follow the
 [TFS installation guide](https://github.com/tensorflow/serving/blob/master/tensorflow_serving/g3doc/setup.md)
-first. At a minimum you need to install bazel and configure Tensorflow
-(`cd tensorflow; ./configure`).
+first. At a minimum you need to install bazel and configure Tensorflow manually:
 
-Next, you will need to install the Caffe prerequisites on your system. For a comprehensive guide, see the [Caffe Installation guide](http://caffe.berkeleyvision.org/installation.html#prerequisites). At a minimum, you
+    > cd tensorflow; ./configure
+    > cd ..
+
+Next, install the Caffe prerequisites on your system. For a comprehensive guide, see the [Caffe Installation guide](http://caffe.berkeleyvision.org/installation.html#prerequisites). At a minimum, you
 will need the following packages (Ubuntu):
 
 - `g++ binutils cmake`
 - `libboost-thread-dev libboost-system-dev libboost-filesystem-dev`
 - `libgflags-dev libgoogle-glog-dev libhdf5-dev`
-
-__Note:__ installing protobuf is not required; the build will adopt the protobuf package from Tensorflow.
 
 To validate the Caffe build, run the following bazel command. This will retrieve Caffe
 from Github and build Caffe in cpu mode:
