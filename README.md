@@ -22,7 +22,7 @@ First, clone the repository and its submodules:
     > git clone --recurse-submodules https://github.com/rayglover-ibm/serving-caffe
     > cd serving-caffe
 
-Caffe has been integrated in to TFS build, and as such you should follow the
+Caffe has been integrated in to the TFS build, and so you should follow the
 [TFS installation guide](https://github.com/tensorflow/serving/blob/master/tensorflow_serving/g3doc/setup.md)
 first. At a minimum you need to install bazel and configure Tensorflow manually:
 
