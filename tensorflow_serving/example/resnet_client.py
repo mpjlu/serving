@@ -36,26 +36,29 @@ import requests
 
 # The server URL specifies the endpoint of your server running the ResNet
 # model with the name "resnet" and using the predict interface.
-SERVER_URL = 'http://localhost:8501/v1/models/resnet:predict'
+SERVER_URL = 'http://0.0.0.0:8555/v1538687457/tmp/resnet:predict'
 
 # The image URL is the location of the image we should send to the server
-IMAGE_URL = 'https://tensorflow.org/images/blogs/serving/cat.jpg'
+IMAGE_URL = b'https://sample-videos.com/img/Sample-jpg-image-100kb.jpg'
 
 
 def main():
   # Download the image
-  dl_request = requests.get(IMAGE_URL, stream=True)
-  dl_request.raise_for_status()
-
+  print("download image")
+  #dl_request = requests.get(IMAGE_URL, stream=True)
+  #dl_request.raise_for_status()
+  print("success download image")
   # Compose a JSON Predict request (send JPEG image in base64).
-  jpeg_bytes = base64.b64encode(dl_request.content).decode('utf-8')
+  jpeg_bytes = base64.b64encode(IMAGE_URL).decode('utf-8')
+  #jpeg_bytes = base64.b64encode(dl_request.content).decode('utf-8')
   predict_request = '{"instances" : [{"b64": "%s"}]}' % jpeg_bytes
 
   # Send few requests to warm-up the model.
   for _ in range(3):
+    print("send warm-up")
     response = requests.post(SERVER_URL, data=predict_request)
     response.raise_for_status()
-
+  
   # Send few actual requests and report average latency.
   total_time = 0
   num_requests = 10

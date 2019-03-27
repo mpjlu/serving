@@ -26,13 +26,14 @@ import tensorflow as tf
 
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
+import time
 
 # The image URL is the location of the image we should send to the server
 IMAGE_URL = 'https://tensorflow.org/images/blogs/serving/cat.jpg'
 
-tf.app.flags.DEFINE_string('server', 'localhost:8500',
+tf.app.flags.DEFINE_string('server', 'localhost:8555',
                            'PredictionService host:port')
-tf.app.flags.DEFINE_string('image', '', 'path to image in JPEG format')
+tf.app.flags.DEFINE_string('image', '/home/pmeng/images/test1.jpg', 'path to image in JPEG format')
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -45,18 +46,26 @@ def main(_):
     dl_request = requests.get(IMAGE_URL, stream=True)
     dl_request.raise_for_status()
     data = dl_request.content
-
+  print(1)
   channel = grpc.insecure_channel(FLAGS.server)
   stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
   # Send request
   # See prediction_service.proto for gRPC request/response details.
+  
   request = predict_pb2.PredictRequest()
   request.model_spec.name = 'resnet'
   request.model_spec.signature_name = 'serving_default'
   request.inputs['image_bytes'].CopyFrom(
       tf.contrib.util.make_tensor_proto(data, shape=[1]))
+  start = time.time()
+  print("send request")
   result = stub.Predict(request, 10.0)  # 10 secs timeout
-  print(result)
+  dur1 = time.time() - start
+  print("Get Result time: %.6f" % dur1)
+  print(result.outputs['classes'])
+  dur2 = time.time() - start
+  print("After Print Result time: %.6f" % dur2)
+
 
 
 if __name__ == '__main__':
