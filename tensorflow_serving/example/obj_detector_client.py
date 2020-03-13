@@ -22,6 +22,14 @@ Typical usage example:
     rcnn_client.py --server=localhost:9000 --gui --img=/path/to/image.jpg
 """
 
+concurrency=5
+num_tests=20
+server="127.0.0.1:9005"
+verbose=True
+gui=False
+imgdir="/home/ubuntu/100jpg"
+
+
 import sys
 import threading
 from os import listdir
@@ -29,7 +37,6 @@ from os.path import isfile, join
 from timeit import default_timer as timer
 
 import numpy
-import tensorflow as tf
 import skimage.io as io
 import skimage.transform as transform
 import matplotlib.pyplot as plt
@@ -38,7 +45,7 @@ from grpc.beta import implementations
 from grpc.framework.interfaces.face.face import AbortionError
 from tensorflow_serving.example import obj_detector_pb2
 from client_util import InferenceStats
-
+'''
 tf.app.flags.DEFINE_integer(
   'concurrency', 1,'maximum number of concurrent inference requests')
 tf.app.flags.DEFINE_integer(
@@ -56,6 +63,9 @@ tf.app.flags.DEFINE_string(
   'imgdir', None, 'path to a gallery of images')
 
 FLAGS = tf.app.flags.FLAGS
+'''
+
+
 
 def connect(hostport):
   """
@@ -188,41 +198,38 @@ def vis_detections(im, dets):
   plt.draw()
   plt.show()
 
-def main(_):
-  if not FLAGS.server:
-    print 'please specify server host:port'
-    return
+def main():
 
   # build image list
   paths = None
-  if FLAGS.imgdir != None:
-    paths = [join(FLAGS.imgdir, f) for f in listdir(FLAGS.imgdir) if isfile(join(FLAGS.imgdir, f))]
+  if imgdir != None:
+    paths = [join(imgdir, f) for f in listdir(imgdir) if isfile(join(imgdir, f))]
   else:
-    paths = [FLAGS.img]
+    paths = [imgdir]
 
   # connect and get input image shape
-  stub = connect(FLAGS.server)
+  stub = connect(server)
   input_shape = handshake(stub)
 
   print ("Connected. Input Shape: {0}".format(input_shape))
 
   # load the image gallery 
   ims = [im_scale_to_fit(io.imread(path), input_shape) for path in paths]
-  n = len(ims) if FLAGS.num_tests < 0 else FLAGS.num_tests
+  n = len(ims) if num_tests < 0 else num_tests
 
   # run the tests
-  stats, results = do_inference(stub, FLAGS.concurrency, n, ims)
+  stats, results = do_inference(stub, concurrency, n, ims)
   InferenceStats.print_summary(stats)
 
   # verbose output / gui
   for image_idx, dets in results:
-    if FLAGS.verbose:
+    if verbose:
       print('\n{0}\n----------------'.format(paths[image_idx]))
       for det in dets:
         print(' {:s}\n  > score: {:.3f}\n  > bbox (x1, y1, x2, y2): ({:d}, {:d}, {:d}, {:d})\n'.format(
               det.class_label, det.score, det.roi_x1, det.roi_y1, det.roi_x2, det.roi_y2))
-    if FLAGS.gui:
+    if gui:
       vis_detections(ims[image_idx], dets)
 
 if __name__ == '__main__':
-  tf.app.run()
+  main()

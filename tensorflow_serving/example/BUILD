@@ -95,9 +95,6 @@ py_binary(
         "obj_detector_pb2.py",
         "client_util.py",
     ],
-    deps = [
-        "@org_tensorflow//tensorflow:tensorflow_py",
-    ],
 )
 
 #

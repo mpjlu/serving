@@ -45,7 +45,7 @@ def tf_serving_workspace(workspace_dir):
   native.new_git_repository(
     name = "caffe_ssd",
     remote = "https://github.com/weiliu89/caffe",
-    commit = "781288500b34a532fd37ee0288710a0f012d2b6c",
+    commit = "4817bf8b4200b35ada8ed0dc378dceaf38c539e4",
     init_submodules = True,
     build_file = workspace_dir + "/caffe.BUILD",
   )

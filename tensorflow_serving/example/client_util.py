@@ -8,19 +8,18 @@ class InferenceStats(object):
   def print_summary(stats, percentiles=[50, 90, 99]):
     filtered = numpy.ma.masked_invalid(stats.timings).compressed() # remove NaNs
 
-    print '\nInference error rate: %s%%' % (
-        stats.classification_error * 100)
+    print ('\nInference error rate: {}'.format(stats.classification_error * 100))
 
-    print "Request error rate: %s%%" % (
-        (1.0 - float(filtered.size) / stats.timings.size) * 100)
+    print ("Request error rate: {}".format(
+        (1.0 - float(filtered.size) / stats.timings.size) * 100))
 
-    print "Avg. Throughput: %s reqs/s" % (
-        float(stats.num_tests) / stats.total_elapsed_time)
+    print ("Avg. Throughput: {} reqs/s".format(
+        float(stats.num_tests) / stats.total_elapsed_time))
 
     if filtered.size > 0:
-      print "Request Latency (percentiles):"
+      print ("Request Latency (percentiles):")
       for pc, x in zip(percentiles, numpy.percentile(filtered, percentiles)):
-        print "  %ith ....... %ims" % (pc, x * 1000.0)
+        print ("  {} ....... {}ms".format(pc, x * 1000.0))
 
   def __init__(self, num_tests, classification_error,
                timings, total_elapsed_time):

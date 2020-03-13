@@ -159,7 +159,7 @@ def export_ssd(base_path, export_path, export_version):
   create_export_dir(export_dir)
   write_class_labels(export_dir)
 
-  src = join(models_path, 'VGG_VOC0712_SSD_300x300_iter_60000.caffemodel')
+  src = join(models_path, 'VGG_VOC0712_SSD_300x300_iter_120000.caffemodel')
   dst = join(export_dir, 'weights.caffemodel')
 
   link(src, dst)
@@ -187,9 +187,9 @@ if __name__ == '__main__':
     raise ValueError('unknown detector type')
 
   # 1. fetch stuff
-  if not os.path.exists(fetch_dir):
-    os.makedirs(fetch_dir)
-  fetch(fetch_dir)
+  #if not os.path.exists(fetch_dir):
+  #  os.makedirs(fetch_dir)
+  #fetch(fetch_dir)
 
   # 2. build a model export
   if export_dir != None:
